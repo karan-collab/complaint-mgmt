@@ -1,0 +1,17 @@
+# Optional overrides for local debugging (ports exposed, no prod secrets required for web-only testing).
+# Usage: docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
+services:
+  postgres:
+    ports:
+      - "5432:5432"
+
+  api:
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      LOGGING_LEVEL_COM_SOCIETYCARE: DEBUG
+
+  web:
+    ports:
+      - "8081:80"

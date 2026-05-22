@@ -1,0 +1,18 @@
+# Zero-install dev profile. Use it with `dev` to skip the Postgres requirement:
+#
+#   mvn -s settings.xml spring-boot:run "-Dspring-boot.run.profiles=dev,h2"
+#
+# Stores data in ./.h2-data/societycare.mv.db so it persists across restarts.
+spring:
+  datasource:
+    # AUTO_SERVER=TRUE lets multiple JVMs share the same H2 file (e.g. the
+    # running app + a manual `mvn spring-boot:run` + an external H2 client).
+    # The first process opens the DB; later ones connect via TCP behind the scenes.
+    url: jdbc:h2:file:./.h2-data/societycare;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1;AUTO_SERVER=TRUE
+    driver-class-name: org.h2.Driver
+    username: sa
+    password: ''
+  h2:
+    console:
+      enabled: true
+      path: /h2-console

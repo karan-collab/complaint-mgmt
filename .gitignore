@@ -1,0 +1,10 @@
+.env
+*.env.local
+
+backend/target/
+backend/.h2-data/
+
+.DS_Store
+.idea/
+*.iml
+.vscode/

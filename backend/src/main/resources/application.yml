@@ -1,0 +1,51 @@
+spring:
+  application:
+    name: societycare-backend
+  profiles:
+    active: dev
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+  jackson:
+    serialization:
+      write-dates-as-timestamps: false
+    time-zone: UTC
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+
+server:
+  port: 8080
+  error:
+    include-message: always
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+
+seed:
+  enabled: false
+
+security:
+  jwt:
+    # Base64-encoded HS256 secret (>=256 bits). Override in prod via env var.
+    secret: ${JWT_SECRET:VGhpcy1pcy1hLWxvbmctZGV2LW9ubHktc2VjcmV0LXJlcGxhY2UtaW4tcHJvZHVjdGlvbi1zby0yNTYtYml0LWhzMjU2LXNpZ25lZA==}
+    ttl-minutes: 120
+    issuer: societycare
+
+app:
+  cors:
+    # Comma-separated list. In dev, allow VS Code Live Server defaults.
+    # In prod, override with APP_CORS_ALLOWED_ORIGINS=https://your-domain.example
+    allowed-origins: ${APP_CORS_ALLOWED_ORIGINS:http://localhost:5500,http://127.0.0.1:5500,http://localhost:8000,http://127.0.0.1:8000}

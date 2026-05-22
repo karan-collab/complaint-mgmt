@@ -1,0 +1,8 @@
+backend/target/
+backend/.h2-data/
+.git
+.github
+.env
+*.md
+deploy/
+.cursor/
