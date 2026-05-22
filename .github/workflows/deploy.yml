@@ -71,7 +71,9 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     needs: build-and-push
-    if: github.ref == 'refs/heads/main' && secrets.DEPLOY_HOST != ''
+    # secrets.* cannot be used in job-level if (GitHub Actions restriction).
+    # Set repository variable DEPLOY_ENABLED=true when VPS secrets are configured.
+    if: github.ref == 'refs/heads/main' && vars.DEPLOY_ENABLED == 'true'
     steps:
       - uses: actions/checkout@v4
 

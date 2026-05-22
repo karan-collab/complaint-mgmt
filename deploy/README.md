@@ -61,7 +61,13 @@ On push to `main`:
 
 1. Runs tests
 2. Builds and pushes images to GHCR (`:latest` and `:<git-sha>`)
-3. **Deploy job** runs only when `DEPLOY_HOST` secret is set
+3. **Deploy job** runs only when repository variable `DEPLOY_ENABLED` is set to `true` (and VPS secrets below are configured)
+
+### Repository variable
+
+| Variable | Value | Description |
+|----------|-------|-------------|
+| `DEPLOY_ENABLED` | `true` | Enables the VPS deploy job on push to `main` (Settings → Secrets and variables → Actions → Variables) |
 
 ### Repository secrets
 
