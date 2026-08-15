@@ -41,7 +41,6 @@
           <button type="submit" class="btn btn-primary btn-block" id="loginSubmit">
             <span class="btn-label">Continue</span>
           </button>
-          <p class="hint">Demo: flat <strong>${storage.DEMO_FLAT_HINT}</strong> / password <strong>pass123</strong></p>
         </form>
       </section>
     `;
@@ -92,7 +91,7 @@
         navigate('#/dashboard');
       } catch (err) {
         const msg = err && err.status === 401
-          ? 'Invalid flat number or password'
+          ? 'Invalid credentials. Please try again.'
           : (err && (err.detail || err.message)) || 'Could not sign in';
         setError(msg);
         form.elements.password.value = '';

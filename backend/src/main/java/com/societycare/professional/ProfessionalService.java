@@ -66,8 +66,8 @@ public class ProfessionalService {
     public void delete(Long id) {
         Professional p = getProfessionalOrThrow(id);
         if (complaintRepository.existsByProfessional_ProfessionalId(p.getProfessionalId())) {
-            throw new ConflictException("Professional " + id
-                    + " cannot be deleted because they are referenced by one or more complaints");
+            throw new ConflictException(p.getName()
+                    + " cannot be deleted because they are assigned to one or more complaints");
         }
         professionalRepository.delete(p);
     }

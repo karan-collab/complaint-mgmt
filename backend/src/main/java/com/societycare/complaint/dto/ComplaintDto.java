@@ -9,6 +9,7 @@ public class ComplaintDto {
     private final Long id;
     private final String flatNo;
     private final String residentName;
+    private final String residentPhone;
     private final Category category;
     private final String description;
     private final StatusDto status;
@@ -20,6 +21,7 @@ public class ComplaintDto {
     public ComplaintDto(Long id,
                         String flatNo,
                         String residentName,
+                        String residentPhone,
                         Category category,
                         String description,
                         StatusDto status,
@@ -30,6 +32,7 @@ public class ComplaintDto {
         this.id = id;
         this.flatNo = flatNo;
         this.residentName = residentName;
+        this.residentPhone = residentPhone;
         this.category = category;
         this.description = description;
         this.status = status;
@@ -49,6 +52,11 @@ public class ComplaintDto {
 
     public String getResidentName() {
         return residentName;
+    }
+
+    /** Contact number of the flat owner, when one is on record. */
+    public String getResidentPhone() {
+        return residentPhone;
     }
 
     public Category getCategory() {

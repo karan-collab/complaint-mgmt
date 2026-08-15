@@ -3,9 +3,12 @@ package com.societycare.resident;
 import com.societycare.resident.dto.CreateResidentRequest;
 import com.societycare.resident.dto.ResetPasswordRequest;
 import com.societycare.resident.dto.ResidentDto;
+import com.societycare.resident.dto.UpdateResidentRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -40,6 +43,19 @@ public class AdminResidentController {
     @ResponseStatus(HttpStatus.CREATED)
     public ResidentDto create(@Valid @RequestBody CreateResidentRequest request) {
         return residentService.create(request);
+    }
+
+    @PatchMapping("/{id}")
+    public ResidentDto update(@PathVariable Long id,
+                              @Valid @RequestBody UpdateResidentRequest request) {
+        return residentService.update(id, request);
+    }
+
+    /** Deletes the resident and every complaint they raised. */
+    @DeleteMapping("/{id}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void delete(@PathVariable Long id) {
+        residentService.delete(id);
     }
 
     /**

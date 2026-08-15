@@ -66,6 +66,10 @@
       `;
     }
 
+    // A resolved complaint is the society's record of work done, so only an
+    // open one can be withdrawn.
+    const canDelete = display !== 'Completed';
+
     return `
       <article class="complaint-card">
         <header class="complaint-head">
@@ -78,6 +82,20 @@
         <p class="complaint-date">Raised on ${formatDate(c.createdAt)}</p>
         <p class="complaint-desc">${ui.escapeHtml(c.description)}</p>
         ${stateBlock}
+        ${
+          canDelete
+            ? `<footer class="complaint-foot">
+                <button type="button" class="btn btn-ghost btn-small btn-danger-ghost" data-action="delete" data-id="${ui.escapeHtml(c.id)}">
+                  <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M3 6h18"/>
+                    <path d="M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2"/>
+                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/>
+                  </svg>
+                  <span>Delete this issue</span>
+                </button>
+              </footer>`
+            : ''
+        }
       </article>
     `;
   }
@@ -141,9 +159,17 @@
           <span>Back to dashboard</span>
         </button>
 
-        <div class="page-title">
-          <h1>Registered Complaints</h1>
-          <p class="muted" id="resultMeta">Flat ${ui.escapeHtml(session.flat)}</p>
+        <div class="page-title-row">
+          <div class="page-title">
+            <h1>Registered Complaints</h1>
+            <p class="muted" id="resultMeta">Flat ${ui.escapeHtml(session.flat)}</p>
+          </div>
+          <button type="button" class="btn btn-primary btn-raise" data-route="#/raise">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M12 5v14M5 12h14"/>
+            </svg>
+            <span>Raise New Issue</span>
+          </button>
         </div>
 
         ${contentHtml}
@@ -154,9 +180,18 @@
   async function renderComplaints(root, ctx) {
     const { session, navigate, params, replaceParams } = ctx;
     const storage = window.CM.storage;
+    const showToast = window.CM.showToast;
+
+    /** Back link and the header's "Raise New Issue" button. */
+    function bindChrome() {
+      const back = root.querySelector('.back-link');
+      if (back) back.addEventListener('click', () => navigate('#/dashboard'));
+      const raise = root.querySelector('.btn-raise');
+      if (raise) raise.addEventListener('click', () => navigate('#/raise'));
+    }
 
     root.innerHTML = renderShell(session, ui.loadingBlock('Loading complaints\u2026'));
-    root.querySelector('.back-link').addEventListener('click', () => navigate('#/dashboard'));
+    bindChrome();
 
     let allComplaints;
     try {
@@ -164,7 +199,7 @@
     } catch (err) {
       const msg = ui.messageFromError(err, 'Could not load complaints.');
       root.innerHTML = renderShell(session, ui.errorBlock(msg, 'Retry'));
-      root.querySelector('.back-link').addEventListener('click', () => navigate('#/dashboard'));
+      bindChrome();
       const retry = root.querySelector('[data-retry]');
       if (retry) retry.addEventListener('click', () => renderComplaints(root, ctx));
       return;
@@ -202,13 +237,45 @@
     `;
 
     root.innerHTML = renderShell(session, interactive);
-    root.querySelector('.back-link').addEventListener('click', () => navigate('#/dashboard'));
+    bindChrome();
 
     const listEl = root.querySelector('#complaintList');
     const metaEl = root.querySelector('#resultMeta');
     const clearBtn = root.querySelector('#filterClear');
     const statusSel = root.querySelector('#filterStatus');
     const categorySel = root.querySelector('#filterCategory');
+
+    /**
+     * Withdraw a complaint the resident no longer needs. Only offered while the
+     * complaint is open; the API refuses completed ones either way.
+     */
+    function wireDeleteButtons() {
+      listEl.querySelectorAll('[data-action="delete"]').forEach((btn) => {
+        btn.addEventListener('click', async () => {
+          const complaint = allComplaints.find((c) => String(c.id) === String(btn.dataset.id));
+          if (!complaint) return;
+
+          const confirmed = await ui.confirmDialog({
+            eyebrow: 'Delete issue',
+            title: 'Delete this issue?',
+            message: `Your <strong>${ui.escapeHtml(complaint.category)}</strong> complaint "${ui.escapeHtml(complaint.description)}" will be removed permanently and management will no longer see it. This cannot be undone.`,
+            confirmLabel: 'Yes, delete it',
+            cancelLabel: 'No, keep it',
+            danger: true,
+          });
+          if (!confirmed) return;
+
+          try {
+            await storage.deleteComplaint(complaint.id);
+            allComplaints = allComplaints.filter((c) => String(c.id) !== String(complaint.id));
+            showToast('Issue deleted');
+            applyAndRender();
+          } catch (err) {
+            showToast(ui.messageFromError(err, 'Could not delete this issue'), 'error');
+          }
+        });
+      });
+    }
 
     function applyAndRender() {
       const filtered = allComplaints.filter((c) => {
@@ -229,6 +296,7 @@
         listEl.innerHTML = filtered
           .map((c) => renderComplaintCard(c, storage.getDisplayStatus))
           .join('');
+        wireDeleteButtons();
       } else {
         listEl.innerHTML = renderEmpty(hasFilters || allComplaints.length > 0);
         const clearInList = listEl.querySelector('[data-action="clear-filters"]');

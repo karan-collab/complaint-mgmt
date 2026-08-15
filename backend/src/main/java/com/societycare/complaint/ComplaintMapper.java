@@ -14,6 +14,7 @@ public class ComplaintMapper {
                 c.getComplaintId(),
                 c.getResident().getFlatNo(),
                 c.getResident().getResidentName(),
+                c.getResident().getPhone(),
                 c.getCategory(),
                 c.getDescription(),
                 new StatusDto(c.getStatus().getStatusId(), c.getStatus().getStatusName()),

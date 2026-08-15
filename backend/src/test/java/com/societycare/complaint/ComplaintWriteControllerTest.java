@@ -20,6 +20,7 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.context.WebApplicationContext;
 
 import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -180,7 +181,10 @@ class ComplaintWriteControllerTest {
     }
 
     @Test
-    void assign_alreadyAssigned_returns409() throws Exception {
+    void assign_alreadyAssigned_reassignsToTheNewWorker() throws Exception {
+        Long otherPlumberId = professionalRepository.save(
+                new Professional("Deepak Rao", "+91 90000 44556", Category.PLUMBER)).getProfessionalId();
+
         Long id = createComplaint(Category.PLUMBER, "Leaking sink in kitchen");
         mockMvc.perform(post("/api/v1/complaints/{id}/assign", id)
                 .with(TestAuth.asAdmin())
@@ -191,9 +195,209 @@ class ComplaintWriteControllerTest {
         mockMvc.perform(post("/api/v1/complaints/{id}/assign", id)
                 .with(TestAuth.asAdmin())
                 .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsBytes(assignReq(otherPlumberId))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.professional.id").value(otherPlumberId))
+                .andExpect(jsonPath("$.professional.name").value("Deepak Rao"))
+                .andExpect(jsonPath("$.status.name").value("Pending Work"))
+                .andExpect(jsonPath("$.assignedAt").exists())
+                .andExpect(jsonPath("$.completedAt").doesNotExist());
+    }
+
+    @Test
+    void assign_completedComplaint_returns409() throws Exception {
+        Long id = createComplaint(Category.PLUMBER, "Leaking sink in kitchen");
+        mockMvc.perform(post("/api/v1/complaints/{id}/assign", id)
+                .with(TestAuth.asAdmin())
+                .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsBytes(assignReq(plumberId))))
-                .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.title").value("Conflict"));
+                .andExpect(status().isOk());
+        mockMvc.perform(post("/api/v1/complaints/{id}/complete", id).with(TestAuth.asAdmin()))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(post("/api/v1/complaints/{id}/assign", id)
+                .with(TestAuth.asAdmin())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsBytes(assignReq(plumberId))))
+                .andExpect(status().isConflict());
+    }
+
+    @Test
+    void reassign_toAnotherCategory_returns400() throws Exception {
+        Long id = createComplaint(Category.PLUMBER, "Leaking sink in kitchen");
+        mockMvc.perform(post("/api/v1/complaints/{id}/assign", id)
+                .with(TestAuth.asAdmin())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsBytes(assignReq(plumberId))))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(post("/api/v1/complaints/{id}/assign", id)
+                .with(TestAuth.asAdmin())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsBytes(assignReq(electricianId))))
+                .andExpect(status().isBadRequest());
+    }
+
+    // --------------------------------------------------------------- unassign
+
+    @Test
+    void unassign_happy_returnsToAssignmentPending() throws Exception {
+        Long id = createComplaint(Category.PLUMBER, "Leaking sink in kitchen");
+        mockMvc.perform(post("/api/v1/complaints/{id}/assign", id)
+                .with(TestAuth.asAdmin())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsBytes(assignReq(plumberId))))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(post("/api/v1/complaints/{id}/unassign", id).with(TestAuth.asAdmin()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status.name").value("Assignment Pending"))
+                .andExpect(jsonPath("$.professional").doesNotExist())
+                .andExpect(jsonPath("$.assignedAt").doesNotExist())
+                .andExpect(jsonPath("$.completedAt").doesNotExist());
+    }
+
+    @Test
+    void unassign_thenAssignAgain_works() throws Exception {
+        Long id = createComplaint(Category.PLUMBER, "Leaking sink in kitchen");
+        mockMvc.perform(post("/api/v1/complaints/{id}/assign", id)
+                .with(TestAuth.asAdmin())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsBytes(assignReq(plumberId))))
+                .andExpect(status().isOk());
+        mockMvc.perform(post("/api/v1/complaints/{id}/unassign", id).with(TestAuth.asAdmin()))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(post("/api/v1/complaints/{id}/assign", id)
+                .with(TestAuth.asAdmin())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsBytes(assignReq(plumberId))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status.name").value("Pending Work"));
+    }
+
+    @Test
+    void unassign_neverAssigned_returns409() throws Exception {
+        Long id = createComplaint(Category.PLUMBER, "Leaking sink in kitchen");
+
+        mockMvc.perform(post("/api/v1/complaints/{id}/unassign", id).with(TestAuth.asAdmin()))
+                .andExpect(status().isConflict());
+    }
+
+    @Test
+    void unassign_completedComplaint_returns409() throws Exception {
+        Long id = createComplaint(Category.PLUMBER, "Leaking sink in kitchen");
+        mockMvc.perform(post("/api/v1/complaints/{id}/assign", id)
+                .with(TestAuth.asAdmin())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsBytes(assignReq(plumberId))))
+                .andExpect(status().isOk());
+        mockMvc.perform(post("/api/v1/complaints/{id}/complete", id).with(TestAuth.asAdmin()))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(post("/api/v1/complaints/{id}/unassign", id).with(TestAuth.asAdmin()))
+                .andExpect(status().isConflict());
+    }
+
+    @Test
+    void unassign_byResident_returns403() throws Exception {
+        Long id = createComplaint(Category.PLUMBER, "Leaking sink in kitchen");
+        mockMvc.perform(post("/api/v1/complaints/{id}/assign", id)
+                .with(TestAuth.asAdmin())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsBytes(assignReq(plumberId))))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(post("/api/v1/complaints/{id}/unassign", id)
+                .with(TestAuth.asResident(residentId, "Anita Sharma", residentFlat)))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void unassign_unknownComplaint_returns404() throws Exception {
+        mockMvc.perform(post("/api/v1/complaints/{id}/unassign", 999_999L).with(TestAuth.asAdmin()))
+                .andExpect(status().isNotFound());
+    }
+
+    // ----------------------------------------------------------------- reopen
+
+    /** Assigns and completes a complaint, returning its id. */
+    private Long completedComplaint() throws Exception {
+        Long id = createComplaint(Category.PLUMBER, "Leaking sink in kitchen");
+        mockMvc.perform(post("/api/v1/complaints/{id}/assign", id)
+                .with(TestAuth.asAdmin())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsBytes(assignReq(plumberId))))
+                .andExpect(status().isOk());
+        mockMvc.perform(post("/api/v1/complaints/{id}/complete", id).with(TestAuth.asAdmin()))
+                .andExpect(status().isOk());
+        return id;
+    }
+
+    @Test
+    void reopen_happy_returnsToAssignmentPendingAndClearsWorker() throws Exception {
+        Long id = completedComplaint();
+
+        mockMvc.perform(post("/api/v1/complaints/{id}/reopen", id).with(TestAuth.asAdmin()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status.name").value("Assignment Pending"))
+                .andExpect(jsonPath("$.professional").doesNotExist())
+                .andExpect(jsonPath("$.assignedAt").doesNotExist())
+                .andExpect(jsonPath("$.completedAt").doesNotExist());
+    }
+
+    @Test
+    void reopen_thenAssignAndCompleteAgain_works() throws Exception {
+        Long id = completedComplaint();
+        mockMvc.perform(post("/api/v1/complaints/{id}/reopen", id).with(TestAuth.asAdmin()))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(post("/api/v1/complaints/{id}/assign", id)
+                .with(TestAuth.asAdmin())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsBytes(assignReq(plumberId))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status.name").value("Pending Work"));
+
+        mockMvc.perform(post("/api/v1/complaints/{id}/complete", id).with(TestAuth.asAdmin()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status.name").value("Complete"));
+    }
+
+    @Test
+    void reopen_notCompleted_returns409() throws Exception {
+        Long id = createComplaint(Category.PLUMBER, "Leaking sink in kitchen");
+
+        mockMvc.perform(post("/api/v1/complaints/{id}/reopen", id).with(TestAuth.asAdmin()))
+                .andExpect(status().isConflict());
+    }
+
+    @Test
+    void reopen_pendingWork_returns409() throws Exception {
+        Long id = createComplaint(Category.PLUMBER, "Leaking sink in kitchen");
+        mockMvc.perform(post("/api/v1/complaints/{id}/assign", id)
+                .with(TestAuth.asAdmin())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsBytes(assignReq(plumberId))))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(post("/api/v1/complaints/{id}/reopen", id).with(TestAuth.asAdmin()))
+                .andExpect(status().isConflict());
+    }
+
+    @Test
+    void reopen_byResident_returns403() throws Exception {
+        Long id = completedComplaint();
+
+        mockMvc.perform(post("/api/v1/complaints/{id}/reopen", id)
+                .with(TestAuth.asResident(residentId, "Anita Sharma", residentFlat)))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void reopen_unknownComplaint_returns404() throws Exception {
+        mockMvc.perform(post("/api/v1/complaints/{id}/reopen", 999_999L).with(TestAuth.asAdmin()))
+                .andExpect(status().isNotFound());
     }
 
     @Test
@@ -257,6 +461,78 @@ class ComplaintWriteControllerTest {
     @Test
     void complete_unknownComplaint_returns404() throws Exception {
         mockMvc.perform(post("/api/v1/complaints/{id}/complete", 999_999L).with(TestAuth.asAdmin()))
+                .andExpect(status().isNotFound());
+    }
+
+    // ----------------------------------------------- delete (resident withdraws)
+
+    @Test
+    void delete_ownPendingComplaint_byResident_removesIt() throws Exception {
+        Long id = createComplaint(Category.PLUMBER, "Leaking sink in kitchen");
+
+        mockMvc.perform(delete("/api/v1/complaints/{id}", id)
+                .with(TestAuth.asResident(residentId, "Anita Sharma", residentFlat)))
+                .andExpect(status().isNoContent());
+
+        org.junit.jupiter.api.Assertions.assertTrue(complaintRepository.findById(id).isEmpty());
+    }
+
+    @Test
+    void delete_ownAssignedComplaint_byResident_removesIt() throws Exception {
+        Long id = createComplaint(Category.PLUMBER, "Leaking sink in kitchen");
+        mockMvc.perform(post("/api/v1/complaints/{id}/assign", id)
+                .with(TestAuth.asAdmin())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsBytes(assignReq(plumberId))))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(delete("/api/v1/complaints/{id}", id)
+                .with(TestAuth.asResident(residentId, "Anita Sharma", residentFlat)))
+                .andExpect(status().isNoContent());
+
+        org.junit.jupiter.api.Assertions.assertTrue(complaintRepository.findById(id).isEmpty());
+    }
+
+    @Test
+    void delete_completedComplaint_returns409AndKeepsIt() throws Exception {
+        Long id = createComplaint(Category.PLUMBER, "Leaking sink in kitchen");
+        mockMvc.perform(post("/api/v1/complaints/{id}/assign", id)
+                .with(TestAuth.asAdmin())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsBytes(assignReq(plumberId))))
+                .andExpect(status().isOk());
+        mockMvc.perform(post("/api/v1/complaints/{id}/complete", id).with(TestAuth.asAdmin()))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(delete("/api/v1/complaints/{id}", id)
+                .with(TestAuth.asResident(residentId, "Anita Sharma", residentFlat)))
+                .andExpect(status().isConflict());
+
+        org.junit.jupiter.api.Assertions.assertTrue(complaintRepository.findById(id).isPresent());
+    }
+
+    @Test
+    void delete_anotherFlatsComplaint_returns403AndKeepsIt() throws Exception {
+        Long id = createComplaint(Category.PLUMBER, "Leaking sink in kitchen");
+
+        mockMvc.perform(delete("/api/v1/complaints/{id}", id)
+                .with(TestAuth.asResident(999L, "Someone Else", "Z-999")))
+                .andExpect(status().isForbidden());
+
+        org.junit.jupiter.api.Assertions.assertTrue(complaintRepository.findById(id).isPresent());
+    }
+
+    @Test
+    void delete_byAdmin_isAllowed() throws Exception {
+        Long id = createComplaint(Category.PLUMBER, "Leaking sink in kitchen");
+
+        mockMvc.perform(delete("/api/v1/complaints/{id}", id).with(TestAuth.asAdmin()))
+                .andExpect(status().isNoContent());
+    }
+
+    @Test
+    void delete_unknownComplaint_returns404() throws Exception {
+        mockMvc.perform(delete("/api/v1/complaints/{id}", 999_999L).with(TestAuth.asAdmin()))
                 .andExpect(status().isNotFound());
     }
 }

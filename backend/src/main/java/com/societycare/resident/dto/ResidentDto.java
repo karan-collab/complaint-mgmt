@@ -10,17 +10,20 @@ public class ResidentDto {
     private final Long id;
     private final String name;
     private final String flatNo;
+    private final String phone;
     private final OffsetDateTime createdAt;
 
-    public ResidentDto(Long id, String name, String flatNo, OffsetDateTime createdAt) {
+    public ResidentDto(Long id, String name, String flatNo, String phone, OffsetDateTime createdAt) {
         this.id = id;
         this.name = name;
         this.flatNo = flatNo;
+        this.phone = phone;
         this.createdAt = createdAt;
     }
 
     public static ResidentDto from(Resident r) {
-        return new ResidentDto(r.getResidentId(), r.getResidentName(), r.getFlatNo(), r.getCreatedAt());
+        return new ResidentDto(r.getResidentId(), r.getResidentName(), r.getFlatNo(),
+                r.getPhone(), r.getCreatedAt());
     }
 
     public Long getId() {
@@ -33,6 +36,10 @@ public class ResidentDto {
 
     public String getFlatNo() {
         return flatNo;
+    }
+
+    public String getPhone() {
+        return phone;
     }
 
     public OffsetDateTime getCreatedAt() {

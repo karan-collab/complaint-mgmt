@@ -84,16 +84,22 @@ public class ComplaintService {
         return getComplaintOrThrow(complaintId).getResident().getFlatNo();
     }
 
+    /**
+     * Assigns a professional, or re-assigns one that is already set. A ticket
+     * that is already in 'Pending Work' may be handed to a different worker;
+     * a completed ticket may not be touched.
+     */
     @Transactional
     public ComplaintDto assign(Long complaintId, AssignComplaintRequest request) {
         Complaint complaint = getComplaintOrThrow(complaintId);
         Professional professional = professionalRepository.findById(request.getProfessionalId())
                 .orElseThrow(() -> new NotFoundException("Professional not found: " + request.getProfessionalId()));
 
-        if (complaint.getStatus().getStatusId() != Status.ASSIGNMENT_PENDING) {
+        int statusId = complaint.getStatus().getStatusId();
+        if (statusId != Status.ASSIGNMENT_PENDING && statusId != Status.PENDING_WORK) {
             throw new ConflictException("Complaint " + complaintId
-                    + " is not in 'Assignment Pending' state (current: "
-                    + complaint.getStatus().getStatusName() + ")");
+                    + " cannot be assigned while it is '"
+                    + complaint.getStatus().getStatusName() + "'");
         }
         if (complaint.getCategory() != professional.getCategory()) {
             throw new BadRequestException("Professional category " + professional.getCategory()
@@ -102,7 +108,55 @@ public class ComplaintService {
 
         complaint.setProfessional(professional);
         complaint.setStatus(statusRepository.getReferenceById(Status.PENDING_WORK));
+        // Re-assigning restarts the clock: assignedAt tracks the current worker.
         complaint.setAssignedAt(OffsetDateTime.now(ZoneOffset.UTC));
+
+        return complaintMapper.toDto(complaintRepository.save(complaint));
+    }
+
+    /**
+     * Drops the assigned worker and sends the ticket back to the
+     * 'Assignment Pending' queue. Only valid while work is pending.
+     */
+    @Transactional
+    public ComplaintDto unassign(Long complaintId) {
+        Complaint complaint = getComplaintOrThrow(complaintId);
+
+        if (complaint.getStatus().getStatusId() != Status.PENDING_WORK) {
+            throw new ConflictException("Complaint " + complaintId
+                    + " has no assigned worker to remove (current: "
+                    + complaint.getStatus().getStatusName() + ")");
+        }
+
+        complaint.setProfessional(null);
+        complaint.setAssignedAt(null);
+        complaint.setStatus(statusRepository.getReferenceById(Status.ASSIGNMENT_PENDING));
+
+        return complaintMapper.toDto(complaintRepository.save(complaint));
+    }
+
+    /**
+     * Sends a completed ticket back to the 'Assignment Pending' queue, e.g.
+     * when the resident reports the work did not actually fix the problem.
+     *
+     * The schema only allows a professional on a ticket that is assigned or
+     * complete, so reopening necessarily clears the previous worker and the
+     * assignment / completion timestamps: the ticket starts over.
+     */
+    @Transactional
+    public ComplaintDto reopen(Long complaintId) {
+        Complaint complaint = getComplaintOrThrow(complaintId);
+
+        if (complaint.getStatus().getStatusId() != Status.COMPLETE) {
+            throw new ConflictException("Complaint " + complaintId
+                    + " is not complete, so it cannot be reopened (current: "
+                    + complaint.getStatus().getStatusName() + ")");
+        }
+
+        complaint.setProfessional(null);
+        complaint.setAssignedAt(null);
+        complaint.setCompletedAt(null);
+        complaint.setStatus(statusRepository.getReferenceById(Status.ASSIGNMENT_PENDING));
 
         return complaintMapper.toDto(complaintRepository.save(complaint));
     }
@@ -121,6 +175,23 @@ public class ComplaintService {
         complaint.setCompletedAt(OffsetDateTime.now(ZoneOffset.UTC));
 
         return complaintMapper.toDto(complaintRepository.save(complaint));
+    }
+
+    /**
+     * Deletes a complaint outright, for a resident withdrawing a request that
+     * no longer needs doing. Completed complaints are the society's record of
+     * work carried out, so those cannot be removed this way.
+     */
+    @Transactional
+    public void delete(Long complaintId) {
+        Complaint complaint = getComplaintOrThrow(complaintId);
+
+        if (complaint.getStatus().getStatusId() == Status.COMPLETE) {
+            throw new ConflictException("Complaint " + complaintId
+                    + " is complete and forms part of the maintenance record, so it cannot be deleted");
+        }
+
+        complaintRepository.delete(complaint);
     }
 
     private Complaint getComplaintOrThrow(Long id) {

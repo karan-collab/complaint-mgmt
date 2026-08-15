@@ -51,7 +51,8 @@ backend/
 │   ├── application-prod.yml     env-driven DB creds, Swagger off
 │   └── db/migration/
 │       ├── V1__schema.sql       all 5 tables + CHECK constraints + indexes
-│       └── V2__seed_status.sql  3 status rows
+│       ├── V2__seed_status.sql  3 status rows
+│       └── V3__resident_phone.sql  optional phone on t_resident
 └── src/test/
     ├── java/com/societycare/
     │   ├── SocietyCareApplicationTests.java
@@ -121,12 +122,17 @@ Authentication is required on every endpoint except the ones marked
 | GET    | `/api/v1/complaints?flat=A-101`       | admin or resident   | Resident may pass only their own flat    |
 | GET    | `/api/v1/complaints/{id}`             | admin or resident   | Resident may only view own-flat items    |
 | POST   | `/api/v1/complaints`                  | resident            | residentId derived from JWT              |
-| POST   | `/api/v1/complaints/{id}/assign`      | admin               | Pick a professional, status ⇒ Pending    |
+| POST   | `/api/v1/complaints/{id}/assign`      | admin               | Assign **or reassign**; status ⇒ Pending Work |
+| POST   | `/api/v1/complaints/{id}/unassign`    | admin               | Drop the worker; status ⇒ Assignment Pending |
 | POST   | `/api/v1/complaints/{id}/complete`    | admin               | Status ⇒ Complete                        |
+| POST   | `/api/v1/complaints/{id}/reopen`      | admin               | Complete ⇒ Assignment Pending; clears worker + timestamps |
 | GET    | `/api/v1/professionals`               | admin or resident   | Optional `?category=`                    |
 | POST/PATCH/DELETE `/api/v1/professionals[/{id}]` | admin   | CRUD; delete blocked if referenced       |
 | GET    | `/api/v1/admin/residents`             | admin               | List residents                           |
 | POST   | `/api/v1/admin/residents`             | admin               | Create a resident with a password        |
+| PATCH  | `/api/v1/admin/residents/{id}`        | admin               | Edit name / flatNo / phone (null = keep) |
+| DELETE | `/api/v1/admin/residents/{id}`        | admin               | Delete resident **and their complaints** |
+| POST   | `/api/v1/admin/residents/{id}/password` | admin             | Force-reset a resident's password        |
 
 ### Authentication
 

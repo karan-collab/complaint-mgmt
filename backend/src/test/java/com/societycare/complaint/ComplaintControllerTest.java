@@ -49,7 +49,9 @@ class ComplaintControllerTest {
         professionalRepository.deleteAll();
         residentRepository.deleteAll();
 
-        Resident anita = residentRepository.save(new Resident("Anita Sharma", "A-101"));
+        Resident anitaEntity = new Resident("Anita Sharma", "A-101");
+        anitaEntity.setPhone("+91 98000 12345");
+        Resident anita = residentRepository.save(anitaEntity);
         Resident ravi = residentRepository.save(new Resident("Ravi Mehta", "B-202"));
 
         Professional plumber =
@@ -183,5 +185,21 @@ class ComplaintControllerTest {
         mockMvc.perform(get("/api/v1/complaints"))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.title").value("Unauthenticated"));
+    }
+
+    @Test
+    void list_includesFlatOwnerNameAndPhone() throws Exception {
+        mockMvc.perform(get("/api/v1/complaints?flat=A-101").with(TestAuth.asAdmin()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].residentName").value("Anita Sharma"))
+                .andExpect(jsonPath("$[0].residentPhone").value("+91 98000 12345"));
+    }
+
+    @Test
+    void list_residentWithoutPhone_omitsIt() throws Exception {
+        mockMvc.perform(get("/api/v1/complaints?flat=B-202").with(TestAuth.asAdmin()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].residentName").value("Ravi Mehta"))
+                .andExpect(jsonPath("$[0].residentPhone").doesNotExist());
     }
 }

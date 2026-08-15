@@ -11,7 +11,8 @@
  *  - throw ApiError for non-2xx, with `status`, `title`, `detail`, `fieldErrors`
  *
  * On 401 the session is cleared and a `cm:unauthorized` event is dispatched on
- * window so the router can boot the user back to login.
+ * window so the router can boot the user back to login. Login requests are
+ * exempt: a 401 there is simply a wrong username/password.
  */
 (function () {
   const cfg = (window.CM && window.CM.config) || { apiBase: '/api/v1' };
@@ -32,6 +33,10 @@
     if (/^https?:/i.test(path)) return path;
     if (!path.startsWith('/')) path = '/' + path;
     return cfg.apiBase + path;
+  }
+
+  function isLoginPath(path) {
+    return /\/auth\/(resident|admin)\/login\/?$/.test(String(path || ''));
   }
 
   function currentToken() {
@@ -115,7 +120,10 @@
       errInfo.detail = summariseFieldErrors(errInfo.fieldErrors);
     }
 
-    if (res.status === 401) {
+    // A 401 from a login attempt means the credentials were wrong, not that an
+    // existing session lapsed - the caller shows its own message and there is
+    // no session to clear.
+    if (res.status === 401 && !isLoginPath(path)) {
       if (window.CM && window.CM.session) window.CM.session.clear();
       window.dispatchEvent(new CustomEvent('cm:unauthorized', { detail: errInfo }));
     }

@@ -13,6 +13,7 @@
     '#/admin/dashboard': { render: views.adminDashboard,  public: false, role: 'admin' },
     '#/admin/tickets':   { render: views.adminTickets,    public: false, role: 'admin' },
     '#/admin/residents': { render: views.adminResidents,  public: false, role: 'admin' },
+    '#/admin/professionals': { render: views.adminProfessionals, public: false, role: 'admin' },
     '#/change-password': { render: views.changePassword,  public: false, role: null },
   };
 
