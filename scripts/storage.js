@@ -25,7 +25,6 @@
 
   const CATEGORIES = ['Plumber', 'Carpenter', 'Electrician', 'Painting', 'Others'];
   const DISPLAY_STATUSES = ['Assignment Pending', 'Pending Work', 'Completed'];
-  const DEMO_FLAT = 'A-101';
 
   // ------------------------------------------------------------------ utils
 
@@ -74,6 +73,7 @@
       id: dto.id,
       flat: dto.flatNo,
       residentName: dto.residentName || null,
+      residentPhone: dto.residentPhone || null,
       category: categoryLabel,
       description: dto.description,
       status: isComplete ? 'Complete' : 'Active',
@@ -151,6 +151,20 @@
     return mapComplaint(dto);
   }
 
+  async function deleteComplaint(id) {
+    await api.delete(`/complaints/${encodeURIComponent(id)}`);
+  }
+
+  async function unassignWorker(id) {
+    const dto = await api.post(`/complaints/${encodeURIComponent(id)}/unassign`);
+    return mapComplaint(dto);
+  }
+
+  async function reopenComplaint(id) {
+    const dto = await api.post(`/complaints/${encodeURIComponent(id)}/reopen`);
+    return mapComplaint(dto);
+  }
+
   async function markComplete(id) {
     const dto = await api.post(`/complaints/${encodeURIComponent(id)}/complete`);
     return mapComplaint(dto);
@@ -176,6 +190,19 @@
       phone: String(phone || '').trim(),
       category: categoryLabelToId(category),
     });
+    return {
+      id: dto.id,
+      name: dto.name,
+      phone: dto.phone,
+      category: categoryIdToLabel(dto.category),
+    };
+  }
+
+  async function updateProfessional(id, { name, phone }) {
+    const body = {};
+    if (name != null) body.name = String(name).trim();
+    if (phone != null) body.phone = String(phone).trim();
+    const dto = await api.patch(`/professionals/${encodeURIComponent(id)}`, body);
     return {
       id: dto.id,
       name: dto.name,
@@ -215,6 +242,25 @@
     };
   }
 
+  async function updateResident(id, { name, flatNo, phone }) {
+    const body = {};
+    if (name != null) body.name = String(name).trim();
+    if (flatNo != null) body.flatNo = normalizeFlat(flatNo);
+    // An empty string is meaningful here: it clears the stored phone.
+    if (phone != null) body.phone = String(phone).trim();
+    const dto = await api.patch(`/admin/residents/${encodeURIComponent(id)}`, body);
+    return {
+      id: dto.id,
+      flat: dto.flatNo,
+      name: dto.name,
+      phone: dto.phone || null,
+    };
+  }
+
+  async function deleteResident(id) {
+    await api.delete(`/admin/residents/${encodeURIComponent(id)}`);
+  }
+
   async function resetResidentPassword(id, { newPassword }) {
     await api.post(`/admin/residents/${encodeURIComponent(id)}/password`, {
       newPassword: String(newPassword || ''),
@@ -245,7 +291,6 @@
     // constants
     CATEGORIES,
     DISPLAY_STATUSES,
-    DEMO_FLAT_HINT: DEMO_FLAT,
 
     // utils
     normalizeFlat,
@@ -270,17 +315,23 @@
     getAllComplaints,
     getComplaintById,
     addComplaint,
+    deleteComplaint,
     assignWorker,
+    unassignWorker,
+    reopenComplaint,
     markComplete,
 
     // professionals
     listProfessionals,
     createProfessional,
+    updateProfessional,
     deleteProfessional,
 
     // residents (admin)
     listResidents,
     createResident,
+    updateResident,
+    deleteResident,
     resetResidentPassword,
   };
 })();

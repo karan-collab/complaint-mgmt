@@ -31,7 +31,7 @@
           <h2>Sign in</h2>
           <label class="field">
             <span>Username</span>
-            <input type="text" name="username" id="adminUsername" autocomplete="username" placeholder="admin" required />
+            <input type="text" name="username" id="adminUsername" autocomplete="username" placeholder="Enter your username" required />
           </label>
           <label class="field">
             <span>Password</span>
@@ -41,7 +41,6 @@
           <button type="submit" class="btn btn-primary btn-block" id="adminLoginSubmit">
             <span class="btn-label">Sign in</span>
           </button>
-          <p class="hint">Demo credentials: <strong>admin</strong> / <strong>admin</strong></p>
         </form>
       </section>
     `;
@@ -86,7 +85,7 @@
         navigate('#/admin/dashboard');
       } catch (err) {
         const msg = err && err.status === 401
-          ? 'Invalid credentials. Try admin / admin'
+          ? 'Invalid credentials. Please try again.'
           : (err && (err.detail || err.message)) || 'Could not sign in';
         setError(msg);
         form.elements.password.value = '';

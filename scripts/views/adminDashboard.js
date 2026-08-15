@@ -17,10 +17,17 @@
     return 'badge-pending';
   }
 
+  /** Which tickets tab a status belongs to. */
+  function tabForStatus(displayStatus) {
+    if (displayStatus === 'Completed') return 'completed';
+    if (displayStatus === 'Pending Work') return 'work';
+    return 'pending';
+  }
+
   function renderRecentItem(c, getDisplayStatus) {
     const display = getDisplayStatus(c);
     return `
-      <li class="recent-item">
+      <li class="recent-item recent-item-clickable" data-ticket="${ui.escapeHtml(c.id)}" data-status="${ui.escapeHtml(tabForStatus(display))}" tabindex="0" role="button" aria-label="Open ticket details">
         <span class="recent-icon" aria-hidden="true">
           <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <circle cx="12" cy="12" r="10"/>
@@ -36,6 +43,12 @@
           <span class="badge ${badgeFor(display)}">${ui.escapeHtml(display)}</span>
           <span class="recent-date">${formatDate(c.createdAt)}</span>
         </div>
+        <span class="recent-open" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M5 12h14"/>
+            <path d="m13 5 7 7-7 7"/>
+          </svg>
+        </span>
       </li>
     `;
   }
@@ -63,7 +76,26 @@
             </span>
             <span class="action-text">
               <span class="action-title">Manage Residents</span>
-              <span class="action-sub">Add a new resident or reset a password.</span>
+              <span class="action-sub">Add, edit or remove a resident, or reset a password.</span>
+            </span>
+            <span class="action-arrow" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M5 12h14"/>
+                <path d="m13 5 7 7-7 7"/>
+              </svg>
+            </span>
+          </button>
+
+          <button type="button" class="action-card" data-nav="#/admin/professionals">
+            <span class="action-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="2" y="7" width="20" height="14" rx="2"/>
+                <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/>
+              </svg>
+            </span>
+            <span class="action-text">
+              <span class="action-title">Manage Professionals</span>
+              <span class="action-sub">Add, edit or remove the workers you assign to tickets.</span>
             </span>
             <span class="action-arrow" aria-hidden="true">
               <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -157,13 +189,31 @@
       btn.addEventListener('click', () => navigate(btn.dataset.nav));
     });
 
-    root.querySelectorAll('[data-status]').forEach((btn) => {
+    // Stat cards and "View all" jump to a tab. Scoped so the recent rows below,
+    // which also carry data-status, keep their own handler.
+    root.querySelectorAll('.stat-card[data-status], .recent-link[data-status]').forEach((btn) => {
       btn.addEventListener('click', () => {
         const status = btn.dataset.status;
         if (status === 'all') {
           navigate('#/admin/tickets', { status: 'pending' });
         } else {
           navigate('#/admin/tickets', { status });
+        }
+      });
+    });
+
+    // A recent ticket opens straight into its detail modal, on the tab that
+    // matches its current status so the right actions are offered.
+    root.querySelectorAll('.recent-item-clickable').forEach((row) => {
+      const open = () => navigate('#/admin/tickets', {
+        status: row.dataset.status,
+        ticket: row.dataset.ticket,
+      });
+      row.addEventListener('click', open);
+      row.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          open();
         }
       });
     });

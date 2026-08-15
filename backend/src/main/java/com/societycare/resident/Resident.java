@@ -25,6 +25,9 @@ public class Resident {
     @Column(name = "flat_no", nullable = false, unique = true, length = 16)
     private String flatNo;
 
+    @Column(name = "phone", length = 32)
+    private String phone;
+
     @Column(name = "password_hash")
     private String passwordHash;
 
@@ -58,6 +61,14 @@ public class Resident {
 
     public void setFlatNo(String flatNo) {
         this.flatNo = flatNo;
+    }
+
+    public String getPhone() {
+        return phone;
+    }
+
+    public void setPhone(String phone) {
+        this.phone = phone;
     }
 
     public String getPasswordHash() {

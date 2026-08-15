@@ -52,7 +52,8 @@ Works for static preview; full features require the API (Options A or B).
 ## Features
 
 - Resident login (flat + password), raise complaints, view status and assigned worker
-- Admin login, ticket assignment, resident management, professional directory
+- Admin login, ticket assignment, resident management (add / edit / delete / reset password),
+  professional directory management (add / edit / delete)
 - JWT auth, Flyway migrations, OpenAPI docs in dev
 
 ## Structure

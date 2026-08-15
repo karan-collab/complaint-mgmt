@@ -1,28 +1,25 @@
 package com.societycare.resident.dto;
 
-import javax.validation.constraints.NotBlank;
 import javax.validation.constraints.Pattern;
 import javax.validation.constraints.Size;
 
-/** Body for {@code POST /api/v1/admin/residents}. Admin-only. */
-public class CreateResidentRequest {
+/**
+ * Body for {@code PATCH /api/v1/admin/residents/{id}}. Admin-only.
+ *
+ * Every field is optional; null means "leave unchanged". The password is not
+ * editable here — use {@code POST /{id}/password} for that.
+ */
+public class UpdateResidentRequest {
 
-    @NotBlank(message = "name must not be blank")
     @Size(max = 120, message = "name must be at most 120 characters")
     private String name;
 
-    @NotBlank(message = "flatNo must not be blank")
     @Size(max = 16, message = "flatNo must be at most 16 characters")
     @Pattern(regexp = "^[A-Za-z0-9-]+$", message = "flatNo must contain only letters, digits and hyphens")
     private String flatNo;
 
-    /** Optional contact number. */
     @Size(max = 32, message = "phone must be at most 32 characters")
     private String phone;
-
-    @NotBlank(message = "password must not be blank")
-    @Size(min = 6, max = 100, message = "password must be 6-100 characters")
-    private String password;
 
     public String getName() {
         return name;
@@ -46,13 +43,5 @@ public class CreateResidentRequest {
 
     public void setPhone(String phone) {
         this.phone = phone;
-    }
-
-    public String getPassword() {
-        return password;
-    }
-
-    public void setPassword(String password) {
-        this.password = password;
     }
 }

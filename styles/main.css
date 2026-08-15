@@ -327,6 +327,19 @@ p { margin: 0; }
   font-size: .75rem;
   color: var(--text-soft);
 }
+/* Explanatory text under an input. Unlike .counter this sits in normal flow,
+   so it never overlaps whatever follows the field. */
+.field .field-hint {
+  font-size: .78rem;
+  line-height: 1.45;
+  color: var(--text-soft);
+}
+.field input:disabled,
+.field select:disabled {
+  background: var(--surface-2);
+  color: var(--text-muted);
+  cursor: not-allowed;
+}
 
 /* ===== Login ===== */
 .view-login {
@@ -723,7 +736,8 @@ p { margin: 0; }
   text-transform: uppercase;
   color: var(--text-soft);
 }
-.filter-field select {
+.filter-field select,
+.filter-field input {
   font: inherit;
   color: var(--text);
   background: var(--surface-2);
@@ -735,11 +749,177 @@ p { margin: 0; }
   transition: border-color .15s ease, box-shadow .15s ease, background .15s ease;
   width: 100%;
 }
-.filter-field select:focus {
+.filter-field select:focus,
+.filter-field input:focus {
   border-color: var(--primary);
   box-shadow: 0 0 0 4px rgba(13, 148, 136, 0.18);
   background: #fff;
 }
+.filter-field input::placeholder { color: var(--text-soft); }
+
+/* One search field plus the clear button. */
+.filter-bar-single { grid-template-columns: 1fr auto; }
+
+.filter-meta {
+  margin: 10px 2px 0;
+  font-size: .85rem;
+  color: var(--text-muted);
+}
+
+/* Admin ticket controls: group-by, category, flat search, sort (+ dates). */
+.controls-bar {
+  display: grid;
+  /* Narrow enough that a phone gets two columns instead of one tall stack
+     that pushes the tickets themselves off the screen. */
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  align-items: end;
+  gap: 10px;
+  padding: 14px;
+}
+.controls-bar .filter-clear { align-self: end; }
+
+.ticket-age {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--text-soft);
+  font-size: .72rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.ticket-age.is-stale {
+  background: var(--warning-soft);
+  color: var(--warning);
+}
+.ticket-age.is-done {
+  background: var(--done-soft);
+  color: var(--done);
+}
+
+/* Ungrouped list sits directly on the page, so it needs its own card edge. */
+.ticket-list-flush {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+}
+
+/* Footer of a resident complaint card: the withdraw action. */
+.complaint-foot {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+/* Page heading with an action button beside it. */
+.page-title-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.page-title-row .page-title { min-width: 0; }
+.btn-raise {
+  flex-shrink: 0;
+  padding: 10px 16px;
+  min-height: 44px;
+  font-size: .95rem;
+}
+@media (max-width: 480px) {
+  .btn-raise { width: 100%; }
+}
+
+/* Recent ticket rows on the admin dashboard open the ticket. */
+.recent-item-clickable {
+  cursor: pointer;
+  transition: background .15s ease;
+}
+.recent-item-clickable:hover { background: var(--primary-50); }
+.recent-item-clickable:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: -2px;
+}
+.recent-open {
+  display: inline-grid;
+  place-items: center;
+  color: var(--text-soft);
+  flex-shrink: 0;
+}
+.recent-item-clickable:hover .recent-open { color: var(--primary-dark); }
+
+/* Flat owner + phone on one row, above the complaint description. */
+.raiser-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.raiser-name {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text);
+  min-width: 0;
+}
+.raiser-nophone {
+  font-size: .85rem;
+  color: var(--text-soft);
+}
+
+/* ===== Grouped ticket sections ===== */
+.group-section {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+  margin-bottom: 12px;
+  overflow: hidden;
+}
+.group-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 16px;
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+  transition: background .15s ease;
+}
+.group-head::-webkit-details-marker { display: none; }
+.group-head:hover { background: var(--primary-50); }
+.group-head h3 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.group-count {
+  flex-shrink: 0;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 3px 12px;
+  font-size: .8rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+.group-chevron {
+  display: inline-grid;
+  place-items: center;
+  color: var(--text-soft);
+  flex-shrink: 0;
+  transition: transform .15s ease;
+}
+.group-section[open] > .group-head > .group-chevron { transform: rotate(90deg); }
+.group-section[open] > .group-head { border-bottom: 1px solid var(--border); }
+.group-head:focus-visible { outline: 2px solid var(--primary); outline-offset: -2px; }
 .filter-clear {
   background: var(--surface);
   color: var(--primary-dark);
@@ -1126,74 +1306,6 @@ p { margin: 0; }
 .admin-tab.is-active.metric-work    { background: var(--work-soft); color: var(--work); }
 .admin-tab.is-active.metric-done    { background: var(--done-soft); color: var(--done); }
 
-.crumbs {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 6px;
-  font-size: .85rem;
-}
-.crumb {
-  background: none;
-  border: 0;
-  font-family: inherit;
-  font-size: .85rem;
-  font-weight: 600;
-  color: var(--text-muted);
-  cursor: pointer;
-  padding: 4px 6px;
-  border-radius: 6px;
-}
-.crumb:hover { background: var(--primary-soft); color: var(--primary-dark); }
-.crumb-current { color: var(--text); pointer-events: none; }
-.crumb-sep { color: var(--text-soft); }
-
-.admin-content { display: flex; flex-direction: column; gap: 14px; }
-
-.category-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-  gap: 12px;
-}
-.category-card {
-  display: grid;
-  grid-template-columns: 44px 1fr auto;
-  align-items: center;
-  gap: 14px;
-  text-align: left;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  padding: 16px 18px;
-  font-family: inherit;
-  color: var(--text);
-  cursor: pointer;
-  box-shadow: var(--shadow-sm);
-  transition: transform .12s ease, box-shadow .15s ease, border-color .15s ease;
-  min-height: 80px;
-}
-.category-card:hover {
-  box-shadow: var(--shadow);
-  transform: translateY(-1px);
-}
-.category-icon {
-  width: 44px;
-  height: 44px;
-  border-radius: 12px;
-  display: inline-grid;
-  place-items: center;
-  background: var(--pending-soft);
-  color: var(--pending);
-}
-
-.category-card.mode-pending .category-icon { background: var(--pending-soft); color: var(--pending); }
-.category-card.mode-pending:hover { border-color: var(--pending-soft); }
-.category-card.mode-work .category-icon { background: var(--work-soft); color: var(--work); }
-.category-card.mode-work:hover { border-color: var(--work-soft); }
-.category-card.mode-done .category-icon { background: var(--done-soft); color: var(--done); }
-.category-card.mode-done:hover { border-color: var(--done-soft); }
-.category-title { display: block; font-size: 1rem; font-weight: 700; }
-.category-sub { display: block; color: var(--text-muted); font-size: .85rem; }
 
 .flat-section {
   background: var(--surface);
@@ -1410,6 +1522,14 @@ body.modal-open { overflow: hidden; }
   border-top: 1px solid var(--border);
   background: var(--surface-2);
 }
+/* A form sitting directly inside .modal supplies its own gutters; inside
+   .modal-foot the footer already provides them, so don't double up. */
+.modal > .modal-form {
+  padding: 20px 24px 22px;
+}
+.modal-foot > .modal-form {
+  padding: 0;
+}
 .modal-form h3 {
   font-size: 1rem;
   font-weight: 700;
@@ -1418,6 +1538,10 @@ body.modal-open { overflow: hidden; }
 .modal-form > .muted {
   font-size: .85rem;
   margin-bottom: 14px;
+}
+/* The last field before the action row shouldn't add to the footer gap. */
+.modal-form > .field:last-of-type {
+  margin-bottom: 0;
 }
 .field-grid {
   display: grid;
@@ -1430,6 +1554,13 @@ body.modal-open { overflow: hidden; }
   justify-content: flex-end;
   margin-top: 16px;
   flex-wrap: wrap;
+}
+/* Destructive action pinned left, the rest right. */
+.modal-actions-spacer { flex: 1 1 auto; }
+@media (max-width: 560px) {
+  .modal-actions-split { flex-direction: column-reverse; }
+  .modal-actions-split .btn { width: 100%; justify-content: center; }
+  .modal-actions-spacer { display: none; }
 }
 .btn-ghost {
   background: var(--surface);
@@ -1451,7 +1582,12 @@ body.modal-open { overflow: hidden; }
   gap: 12px;
   flex-wrap: wrap;
 }
-.worker-info { flex: 1; min-width: 0; }
+/* Keep enough room for the name; when the phone chip no longer fits beside it
+   the row wraps instead of squeezing the name out of its box. */
+.worker-info { flex: 1 1 140px; min-width: 140px; }
+@media (max-width: 480px) {
+  .worker-row .worker-phone { width: 100%; }
+}
 .worker-block .worker-name { font-weight: 700; font-size: 1rem; }
 .worker-block .worker-prof { color: var(--text-muted); font-size: .85rem; }
 
@@ -1488,6 +1624,12 @@ body.modal-open { overflow: hidden; }
   .filter-bar {
     grid-template-columns: 1fr 1fr;
     grid-auto-flow: row;
+  }
+  /* The admin bars include a free-text search, which needs the full width
+     more than the two side-by-side selects on the complaints page do. */
+  .filter-bar-single,
+  .filter-bar-admin {
+    grid-template-columns: 1fr;
   }
   .filter-clear {
     grid-column: 1 / -1;
@@ -1622,10 +1764,37 @@ body.modal-open { overflow: hidden; }
 .data-table tbody tr:last-child td { border-bottom: none; }
 .data-table tbody tr:hover { background: var(--primary-50); }
 .row-actions-head { text-align: right; }
-.row-actions { text-align: right; }
+.row-actions {
+  text-align: right;
+  white-space: nowrap;
+}
+.row-actions .btn + .btn { margin-left: 6px; }
+
+/* Destructive actions: a red-tinted ghost in table rows, solid in dialogs. */
+.btn-danger-ghost {
+  color: var(--danger);
+  border-color: var(--danger-soft);
+}
+.btn-danger-ghost:hover {
+  background: var(--danger-soft);
+  border-color: var(--danger);
+}
+.btn-danger {
+  background: var(--danger);
+  color: #fff;
+  border: 1px solid var(--danger);
+}
+.btn-danger:hover { background: #b91c1c; border-color: #b91c1c; }
+
+.confirm-message {
+  color: var(--text-muted);
+  font-size: .95rem;
+  line-height: 1.55;
+  margin: 0 0 4px;
+}
+.confirm-message strong { color: var(--text); }
 
 .admin-shortcut-grid {
-  grid-template-columns: 1fr;
   margin-bottom: 12px;
 }
 @media (min-width: 720px) {
@@ -1670,5 +1839,14 @@ body.modal-open { overflow: hidden; }
     padding: 4px 0;
     border: none;
   }
-  .row-actions { text-align: left; margin-top: 6px; }
+  .row-actions {
+    text-align: left;
+    margin-top: 6px;
+    /* Three actions will not fit on one phone-width line. */
+    white-space: normal;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .row-actions .btn + .btn { margin-left: 0; }
 }
