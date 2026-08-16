@@ -1,6 +1,7 @@
 package com.societycare.complaint.dto;
 
 import com.societycare.complaint.Category;
+import com.societycare.complaint.DeletionReason;
 
 import java.time.OffsetDateTime;
 
@@ -17,6 +18,9 @@ public class ComplaintDto {
     private final OffsetDateTime createdAt;
     private final OffsetDateTime assignedAt;
     private final OffsetDateTime completedAt;
+    private final DeletionReason deletionReason;
+    private final String deletionComments;
+    private final OffsetDateTime deletedAt;
 
     public ComplaintDto(Long id,
                         String flatNo,
@@ -28,7 +32,10 @@ public class ComplaintDto {
                         ProfessionalSummaryDto professional,
                         OffsetDateTime createdAt,
                         OffsetDateTime assignedAt,
-                        OffsetDateTime completedAt) {
+                        OffsetDateTime completedAt,
+                        DeletionReason deletionReason,
+                        String deletionComments,
+                        OffsetDateTime deletedAt) {
         this.id = id;
         this.flatNo = flatNo;
         this.residentName = residentName;
@@ -40,6 +47,9 @@ public class ComplaintDto {
         this.createdAt = createdAt;
         this.assignedAt = assignedAt;
         this.completedAt = completedAt;
+        this.deletionReason = deletionReason;
+        this.deletionComments = deletionComments;
+        this.deletedAt = deletedAt;
     }
 
     public Long getId() {
@@ -85,5 +95,22 @@ public class ComplaintDto {
 
     public OffsetDateTime getCompletedAt() {
         return completedAt;
+    }
+
+    public DeletionReason getDeletionReason() {
+        return deletionReason;
+    }
+
+    /** Human-readable reason, e.g. "Resolved on its own"; null when not deleted. */
+    public String getDeletionReasonLabel() {
+        return deletionReason == null ? null : deletionReason.getLabel();
+    }
+
+    public String getDeletionComments() {
+        return deletionComments;
+    }
+
+    public OffsetDateTime getDeletedAt() {
+        return deletedAt;
     }
 }

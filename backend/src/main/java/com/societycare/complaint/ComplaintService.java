@@ -6,6 +6,7 @@ import com.societycare.common.NotFoundException;
 import com.societycare.complaint.dto.AssignComplaintRequest;
 import com.societycare.complaint.dto.ComplaintDto;
 import com.societycare.complaint.dto.CreateComplaintRequest;
+import com.societycare.complaint.dto.DeleteComplaintRequest;
 import com.societycare.professional.Professional;
 import com.societycare.professional.ProfessionalRepository;
 import com.societycare.resident.Resident;
@@ -42,15 +43,25 @@ public class ComplaintService {
         this.complaintMapper = complaintMapper;
     }
 
+    /** Active complaints only; withdrawn ones are excluded from every listing. */
     public List<ComplaintDto> findAll() {
-        return complaintRepository.findAllByOrderByCreatedAtDesc()
+        return complaintRepository.findByStatus_StatusIdNotOrderByCreatedAtDesc(Status.DELETED)
                 .stream()
                 .map(complaintMapper::toDto)
                 .collect(Collectors.toList());
     }
 
     public List<ComplaintDto> findByFlat(String flatNo) {
-        return complaintRepository.findByResident_FlatNoIgnoreCaseOrderByCreatedAtDesc(flatNo)
+        return complaintRepository
+                .findByResident_FlatNoIgnoreCaseAndStatus_StatusIdNotOrderByCreatedAtDesc(flatNo, Status.DELETED)
+                .stream()
+                .map(complaintMapper::toDto)
+                .collect(Collectors.toList());
+    }
+
+    /** Withdrawn complaints, newest first. Admin-only reporting view. */
+    public List<ComplaintDto> findDeleted() {
+        return complaintRepository.findByStatus_StatusIdOrderByCreatedAtDesc(Status.DELETED)
                 .stream()
                 .map(complaintMapper::toDto)
                 .collect(Collectors.toList());
@@ -178,20 +189,39 @@ public class ComplaintService {
     }
 
     /**
-     * Deletes a complaint outright, for a resident withdrawing a request that
-     * no longer needs doing. Completed complaints are the society's record of
-     * work carried out, so those cannot be removed this way.
+     * Withdraws a complaint: it moves to status 4 (Deleted) with a reason and
+     * optional comments, rather than being removed from the table, so the
+     * society keeps a record of what was withdrawn and why. The professional
+     * and assigned_at are left untouched, which preserves the stage it had
+     * reached when the resident pulled it.
+     *
+     * Completed complaints are the record of work carried out and cannot be
+     * withdrawn.
      */
     @Transactional
-    public void delete(Long complaintId) {
+    public ComplaintDto delete(Long complaintId, DeleteComplaintRequest request) {
         Complaint complaint = getComplaintOrThrow(complaintId);
+        int statusId = complaint.getStatus().getStatusId();
 
-        if (complaint.getStatus().getStatusId() == Status.COMPLETE) {
+        if (statusId == Status.COMPLETE) {
             throw new ConflictException("Complaint " + complaintId
                     + " is complete and forms part of the maintenance record, so it cannot be deleted");
         }
+        if (statusId == Status.DELETED) {
+            throw new ConflictException("Complaint " + complaintId + " has already been deleted");
+        }
 
-        complaintRepository.delete(complaint);
+        String comments = request.getComments() == null ? null : request.getComments().trim();
+        if (request.getReason() == DeletionReason.OTHER && (comments == null || comments.isEmpty())) {
+            throw new BadRequestException("Please describe the reason when choosing 'Other'");
+        }
+
+        complaint.setDeletionReason(request.getReason());
+        complaint.setDeletionComments(comments == null || comments.isEmpty() ? null : comments);
+        complaint.setDeletedAt(OffsetDateTime.now(ZoneOffset.UTC));
+        complaint.setStatus(statusRepository.getReferenceById(Status.DELETED));
+
+        return complaintMapper.toDto(complaintRepository.save(complaint));
     }
 
     private Complaint getComplaintOrThrow(Long id) {

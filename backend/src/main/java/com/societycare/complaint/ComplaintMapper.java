@@ -21,7 +21,10 @@ public class ComplaintMapper {
                 toProfessionalDto(c.getProfessional()),
                 c.getCreatedAt(),
                 c.getAssignedAt(),
-                c.getCompletedAt()
+                c.getCompletedAt(),
+                c.getDeletionReason(),
+                c.getDeletionComments(),
+                c.getDeletedAt()
         );
     }
 

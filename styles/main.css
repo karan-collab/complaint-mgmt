@@ -793,6 +793,10 @@ p { margin: 0; }
   background: var(--warning-soft);
   color: var(--warning);
 }
+.ticket-age.is-deleted {
+  background: var(--danger-soft);
+  color: var(--danger);
+}
 .ticket-age.is-done {
   background: var(--done-soft);
   color: var(--done);
@@ -1015,6 +1019,7 @@ p { margin: 0; }
   color: var(--done);
   border-color: rgba(22, 163, 74, 0.25);
 }
+.badge-deleted { background: var(--danger-soft); color: var(--danger); }
 
 /* ===== State banners inside complaint card ===== */
 .state-banner {
@@ -1305,6 +1310,7 @@ p { margin: 0; }
 .admin-tab.is-active.metric-pending { background: var(--pending-soft); color: var(--pending); }
 .admin-tab.is-active.metric-work    { background: var(--work-soft); color: var(--work); }
 .admin-tab.is-active.metric-done    { background: var(--done-soft); color: var(--done); }
+.admin-tab.is-active.metric-deleted { background: var(--danger-soft); color: var(--danger); }
 
 
 .flat-section {

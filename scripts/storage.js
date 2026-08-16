@@ -26,6 +26,15 @@
   const CATEGORIES = ['Plumber', 'Carpenter', 'Electrician', 'Painting', 'Others'];
   const DISPLAY_STATUSES = ['Assignment Pending', 'Pending Work', 'Completed'];
 
+  // Mirrors DeletionReason.java. OTHER requires the free-text box.
+  const DELETION_REASONS = [
+    { value: 'RESOLVED_ITSELF', label: 'Resolved on its own' },
+    { value: 'RAISED_BY_MISTAKE', label: 'Raised by mistake' },
+    { value: 'DUPLICATE', label: 'Duplicate of another complaint' },
+    { value: 'HANDLED_PRIVATELY', label: 'Handled privately' },
+    { value: 'OTHER', label: 'Other' },
+  ];
+
   // ------------------------------------------------------------------ utils
 
   function normalizeFlat(flat) {
@@ -61,6 +70,7 @@
     const categoryLabel = categoryIdToLabel(dto.category);
     const backendStatus = dto.status && dto.status.name;
     const isComplete = backendStatus === 'Complete';
+    const isDeleted = backendStatus === 'Deleted';
     const worker = dto.professional
       ? {
           id: dto.professional.id,
@@ -76,16 +86,21 @@
       residentPhone: dto.residentPhone || null,
       category: categoryLabel,
       description: dto.description,
-      status: isComplete ? 'Complete' : 'Active',
+      status: isDeleted ? 'Deleted' : isComplete ? 'Complete' : 'Active',
       worker,
       createdAt: dto.createdAt,
       assignedAt: dto.assignedAt,
       completedAt: dto.completedAt,
+      deletedAt: dto.deletedAt || null,
+      deletionReason: dto.deletionReason || null,
+      deletionReasonLabel: dto.deletionReasonLabel || null,
+      deletionComments: dto.deletionComments || null,
     };
   }
 
   function getDisplayStatus(c) {
     if (!c) return 'Assignment Pending';
+    if (c.status === 'Deleted') return 'Deleted';
     if (c.status === 'Complete') return 'Completed';
     return c.worker ? 'Pending Work' : 'Assignment Pending';
   }
@@ -151,8 +166,17 @@
     return mapComplaint(dto);
   }
 
-  async function deleteComplaint(id) {
-    await api.delete(`/complaints/${encodeURIComponent(id)}`);
+  async function deleteComplaint(id, { reason, comments }) {
+    const dto = await api.post(`/complaints/${encodeURIComponent(id)}/delete`, {
+      reason: String(reason || ''),
+      comments: comments ? String(comments).trim() : null,
+    });
+    return mapComplaint(dto);
+  }
+
+  async function getDeletedComplaints() {
+    const list = await api.get('/complaints/deleted');
+    return (list || []).map(mapComplaint);
   }
 
   async function unassignWorker(id) {
@@ -291,6 +315,7 @@
     // constants
     CATEGORIES,
     DISPLAY_STATUSES,
+    DELETION_REASONS,
 
     // utils
     normalizeFlat,
@@ -316,6 +341,7 @@
     getComplaintById,
     addComplaint,
     deleteComplaint,
+    getDeletedComplaints,
     assignWorker,
     unassignWorker,
     reopenComplaint,

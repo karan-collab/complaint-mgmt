@@ -3,13 +3,13 @@ package com.societycare.complaint;
 import com.societycare.complaint.dto.AssignComplaintRequest;
 import com.societycare.complaint.dto.ComplaintDto;
 import com.societycare.complaint.dto.CreateComplaintRequest;
+import com.societycare.complaint.dto.DeleteComplaintRequest;
 import com.societycare.security.AuthenticatedUser;
 import io.swagger.v3.oas.annotations.Parameter;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -78,21 +78,28 @@ public class ComplaintController {
     }
 
     /**
-     * Withdraws a complaint. Residents may only delete their own, and only
-     * while it is not complete.
+     * Withdraws a complaint: it moves to status Deleted with a reason, rather
+     * than being removed. Residents may only withdraw their own.
      */
-    @DeleteMapping("/{id}")
-    @ResponseStatus(HttpStatus.NO_CONTENT)
+    @PostMapping("/{id}/delete")
     @PreAuthorize("hasAnyRole('ADMIN', 'RESIDENT')")
-    public void delete(@PathVariable Long id,
-                       @Parameter(hidden = true) @AuthenticationPrincipal AuthenticatedUser principal) {
+    public ComplaintDto delete(@PathVariable Long id,
+                               @Valid @RequestBody DeleteComplaintRequest request,
+                               @Parameter(hidden = true) @AuthenticationPrincipal AuthenticatedUser principal) {
         if (principal.isResident()) {
             String complaintFlat = complaintService.getFlatNoFor(id);
             if (!complaintFlat.equalsIgnoreCase(principal.getFlatNo())) {
                 throw new AccessDeniedException("Residents may only delete their own complaints");
             }
         }
-        complaintService.delete(id);
+        return complaintService.delete(id, request);
+    }
+
+    /** Withdrawn complaints, for the record. Admin only. */
+    @GetMapping("/deleted")
+    @PreAuthorize("hasRole('ADMIN')")
+    public List<ComplaintDto> listDeleted() {
+        return complaintService.findDeleted();
     }
 
     @PostMapping("/{id}/assign")

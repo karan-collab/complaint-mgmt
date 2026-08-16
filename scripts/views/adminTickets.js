@@ -67,6 +67,13 @@
       badge: 'badge-done',
       empty: 'No completed tickets yet.',
     },
+    deleted: {
+      key: 'Deleted',
+      title: 'Deleted',
+      sub: 'Complaints withdrawn by residents, kept for the record.',
+      badge: 'badge-deleted',
+      empty: 'No complaints have been withdrawn.',
+    },
   };
 
   const CATEGORY_PATH = {
@@ -97,6 +104,11 @@
    * the latter being what the Completed tab filters on.
    */
   function renderAge(complaint, display) {
+    if (display === 'Deleted') {
+      return complaint.deletedAt
+        ? `<span class="ticket-age is-deleted">Deleted ${formatDate(complaint.deletedAt)}</span>`
+        : '';
+    }
     if (display === 'Completed') {
       return complaint.completedAt
         ? `<span class="ticket-age is-done">Completed ${formatDate(complaint.completedAt)}</span>`
@@ -115,7 +127,7 @@
       <li class="ticket-row" data-ticket="${ui.escapeHtml(c.id)}" tabindex="0" role="button" aria-label="Open ticket details">
         <span class="ticket-cat">${categoryIconSvg(c.category)} <span>${ui.escapeHtml(c.category)}</span></span>
         <div class="ticket-body">
-          <p class="ticket-title">Flat ${ui.escapeHtml(c.flat)} <span class="ticket-date">${display === 'Completed' ? 'Raised ' : ''}${formatDate(c.createdAt)}</span> ${renderAge(c, display)}</p>
+          <p class="ticket-title">Flat ${ui.escapeHtml(c.flat)} <span class="ticket-date">${display === 'Completed' || display === 'Deleted' ? 'Raised ' : ''}${formatDate(c.createdAt)}</span> ${renderAge(c, display)}</p>
           <p class="ticket-desc">${ui.escapeHtml(c.description)}</p>
           ${
             c.worker
@@ -215,11 +227,38 @@
     const isPending = display === 'Assignment Pending';
     const isWork = display === 'Pending Work';
     const isDone = display === 'Completed';
+    const isDeleted = display === 'Deleted';
 
-    const badgeClass = isPending ? 'badge-pending' : isWork ? 'badge-work' : 'badge-done';
+    const badgeClass = isDeleted
+      ? 'badge-deleted'
+      : isPending ? 'badge-pending' : isWork ? 'badge-work' : 'badge-done';
 
     let actionsBlock = '';
-    if (isPending) {
+    if (isDeleted) {
+      actionsBlock = `
+        <div class="modal-form">
+          <h3>Withdrawn by the resident</h3>
+          <div class="worker-block">
+            <p class="modal-section-label">Reason</p>
+            <p class="modal-desc">${ui.escapeHtml(complaint.deletionReasonLabel || 'Not recorded')}</p>
+            ${
+              complaint.deletionComments
+                ? `<p class="modal-section-label" style="margin-top:12px;">Their comments</p>
+                   <p class="modal-desc">${ui.escapeHtml(complaint.deletionComments)}</p>`
+                : ''
+            }
+            ${
+              complaint.deletedAt
+                ? `<p class="muted" style="margin-top:8px;font-size:.8rem;">Deleted on ${formatDate(complaint.deletedAt)}</p>`
+                : ''
+            }
+          </div>
+          <div class="modal-actions">
+            <button type="button" class="btn btn-primary" data-close>Close</button>
+          </div>
+        </div>
+      `;
+    } else if (isPending) {
       actionsBlock = renderAssignForm(complaint, false);
     } else if (isWork && action === 'reassign') {
       actionsBlock = renderAssignForm(complaint, true);
@@ -528,6 +567,7 @@
           <button type="button" class="admin-tab metric-pending ${statusKey === 'pending' ? 'is-active' : ''}" data-tab="pending">Assignment Pending</button>
           <button type="button" class="admin-tab metric-work ${statusKey === 'work' ? 'is-active' : ''}" data-tab="work">Pending Work</button>
           <button type="button" class="admin-tab metric-done ${statusKey === 'completed' ? 'is-active' : ''}" data-tab="completed">Completed</button>
+          <button type="button" class="admin-tab metric-deleted ${statusKey === 'deleted' ? 'is-active' : ''}" data-tab="deleted">Deleted</button>
         </nav>
 
         ${controlsHtml || ''}
@@ -543,7 +583,7 @@
     const storage = window.CM.storage;
     const showToast = window.CM.showToast;
 
-    const statusKey = ['pending', 'work', 'completed'].includes(params.status) ? params.status : 'pending';
+    const statusKey = ['pending', 'work', 'completed', 'deleted'].includes(params.status) ? params.status : 'pending';
     const mode = STATUS_MODES[statusKey];
     const isCompletedTab = statusKey === 'completed';
     const openTicketId = params.ticket || '';
@@ -600,9 +640,15 @@
     root.innerHTML = renderShell(mode, statusKey, ui.loadingBlock('Loading tickets…'), '', '');
     wireChrome();
 
+    const isDeletedTab = statusKey === 'deleted';
+
     let allComplaints;
     try {
-      allComplaints = await storage.getAllComplaints();
+      // Withdrawn complaints are excluded from the normal listings, so the
+      // Deleted tab has to ask for them explicitly.
+      allComplaints = isDeletedTab
+        ? await storage.getDeletedComplaints()
+        : await storage.getAllComplaints();
     } catch (err) {
       const msg = ui.messageFromError(err, 'Could not load tickets.');
       root.innerHTML = renderShell(mode, statusKey, ui.errorBlock(msg, 'Retry'), '', '');
