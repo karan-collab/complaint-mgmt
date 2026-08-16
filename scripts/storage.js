@@ -194,6 +194,34 @@
     return mapComplaint(dto);
   }
 
+  // -------------------------------------------------------- notifications
+
+  // The feed is scoped to the caller by their token, so there is no id to pass:
+  // a resident physically cannot ask for somebody else's notifications.
+  async function getNotifications() {
+    const list = await api.get('/notifications');
+    return (list || []).map((n) => ({
+      id: n.id,
+      type: n.type,
+      message: n.message,
+      complaintId: n.complaintId,
+      flat: n.flatNo,
+      category: n.category,
+      createdAt: n.createdAt,
+      read: !!n.read,
+    }));
+  }
+
+  /** Cheap enough to poll; it is the only thing the red dot needs. */
+  async function getUnreadNotificationCount() {
+    const dto = await api.get('/notifications/unread-count');
+    return (dto && dto.count) || 0;
+  }
+
+  async function markNotificationsRead() {
+    await api.post('/notifications/read');
+  }
+
   // ------------------------------------------------------- professionals
 
   async function listProfessionals(category) {
@@ -346,6 +374,11 @@
     unassignWorker,
     reopenComplaint,
     markComplete,
+
+    // notifications
+    getNotifications,
+    getUnreadNotificationCount,
+    markNotificationsRead,
 
     // professionals
     listProfessionals,

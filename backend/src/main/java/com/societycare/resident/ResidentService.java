@@ -3,6 +3,7 @@ package com.societycare.resident;
 import com.societycare.common.ConflictException;
 import com.societycare.common.NotFoundException;
 import com.societycare.complaint.ComplaintRepository;
+import com.societycare.notification.NotificationService;
 import com.societycare.resident.dto.CreateResidentRequest;
 import com.societycare.resident.dto.ResetPasswordRequest;
 import com.societycare.resident.dto.ResidentDto;
@@ -20,13 +21,16 @@ public class ResidentService {
 
     private final ResidentRepository residentRepository;
     private final ComplaintRepository complaintRepository;
+    private final NotificationService notificationService;
     private final PasswordEncoder passwordEncoder;
 
     public ResidentService(ResidentRepository residentRepository,
                            ComplaintRepository complaintRepository,
+                           NotificationService notificationService,
                            PasswordEncoder passwordEncoder) {
         this.residentRepository = residentRepository;
         this.complaintRepository = complaintRepository;
+        this.notificationService = notificationService;
         this.passwordEncoder = passwordEncoder;
     }
 
@@ -84,6 +88,10 @@ public class ResidentService {
     @Transactional
     public void delete(Long residentId) {
         Resident resident = getResidentOrThrow(residentId);
+        // Children first, deepest last-referenced first: notifications point at
+        // the complaints, the complaints point at the resident. Removing them in
+        // any other order trips a foreign key.
+        notificationService.purgeForResident(residentId);
         complaintRepository.deleteByResident_ResidentId(residentId);
         residentRepository.delete(resident);
     }

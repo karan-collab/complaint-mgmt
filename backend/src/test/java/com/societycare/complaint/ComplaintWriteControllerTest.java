@@ -3,6 +3,7 @@ package com.societycare.complaint;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.societycare.complaint.dto.AssignComplaintRequest;
 import com.societycare.complaint.dto.CreateComplaintRequest;
+import com.societycare.notification.NotificationRepository;
 import com.societycare.professional.Professional;
 import com.societycare.professional.ProfessionalRepository;
 import com.societycare.resident.Resident;
@@ -33,6 +34,7 @@ class ComplaintWriteControllerTest {
     @Autowired private ResidentRepository residentRepository;
     @Autowired private ProfessionalRepository professionalRepository;
     @Autowired private ComplaintRepository complaintRepository;
+    @Autowired private NotificationRepository notificationRepository;
     @Autowired private StatusRepository statusRepository;
     @Autowired private ObjectMapper objectMapper;
 
@@ -48,6 +50,7 @@ class ComplaintWriteControllerTest {
                 .apply(springSecurity())
                 .build();
 
+        notificationRepository.deleteAll();
         complaintRepository.deleteAll();
         professionalRepository.deleteAll();
         residentRepository.deleteAll();

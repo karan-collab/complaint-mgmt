@@ -71,11 +71,15 @@
     const topbarUser = document.getElementById('topbarUser');
     const topbarName = document.getElementById('topbarName');
     const topbarFlat = document.getElementById('topbarFlat');
+    const notifications = window.CM.notifications;
     if (!logoutBtn) return;
     if (s) {
       logoutBtn.hidden = false;
       if (changePwBtn) changePwBtn.hidden = false;
       if (topbarUser) topbarUser.hidden = false;
+      // Also re-reads the unread count, so the dot reacts to whatever the user
+      // just did without waiting for the next poll.
+      if (notifications) notifications.start(s);
       if (s.role === 'admin') {
         if (topbarName) topbarName.textContent = 'Management';
         if (topbarFlat) topbarFlat.textContent = `@${s.username || s.displayName || 'admin'}`;
@@ -87,6 +91,7 @@
       logoutBtn.hidden = true;
       if (changePwBtn) changePwBtn.hidden = true;
       if (topbarUser) topbarUser.hidden = true;
+      if (notifications) notifications.stop();
     }
   }
 

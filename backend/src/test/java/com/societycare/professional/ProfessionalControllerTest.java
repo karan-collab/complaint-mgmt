@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.societycare.complaint.Category;
 import com.societycare.complaint.Complaint;
 import com.societycare.complaint.ComplaintRepository;
+import com.societycare.notification.NotificationRepository;
 import com.societycare.professional.dto.CreateProfessionalRequest;
 import com.societycare.professional.dto.UpdateProfessionalRequest;
 import com.societycare.resident.Resident;
@@ -41,6 +42,7 @@ class ProfessionalControllerTest {
     @Autowired private ProfessionalRepository professionalRepository;
     @Autowired private ResidentRepository residentRepository;
     @Autowired private ComplaintRepository complaintRepository;
+    @Autowired private NotificationRepository notificationRepository;
     @Autowired private StatusRepository statusRepository;
     @Autowired private ObjectMapper objectMapper;
 
@@ -51,6 +53,7 @@ class ProfessionalControllerTest {
         mockMvc = MockMvcBuilders.webAppContextSetup(webApplicationContext)
                 .apply(springSecurity())
                 .build();
+        notificationRepository.deleteAll();
         complaintRepository.deleteAll();
         professionalRepository.deleteAll();
         residentRepository.deleteAll();

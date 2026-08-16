@@ -2,6 +2,7 @@ package com.societycare.resident;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.societycare.complaint.ComplaintRepository;
+import com.societycare.notification.NotificationRepository;
 import com.societycare.resident.dto.CreateResidentRequest;
 import com.societycare.resident.dto.ResetPasswordRequest;
 import com.societycare.resident.dto.UpdateResidentRequest;
@@ -32,6 +33,7 @@ class AdminResidentControllerTest {
     @Autowired private WebApplicationContext webApplicationContext;
     @Autowired private ResidentRepository residentRepository;
     @Autowired private ComplaintRepository complaintRepository;
+    @Autowired private NotificationRepository notificationRepository;
     @Autowired private PasswordEncoder passwordEncoder;
     @Autowired private ObjectMapper objectMapper;
 
@@ -43,6 +45,7 @@ class AdminResidentControllerTest {
                 .apply(springSecurity())
                 .build();
         // Complaints hold an FK to resident, so they have to go first.
+        notificationRepository.deleteAll();
         complaintRepository.deleteAll();
         residentRepository.deleteAll();
     }

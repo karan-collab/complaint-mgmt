@@ -189,6 +189,101 @@ p { margin: 0; }
   color: var(--primary-dark);
 }
 
+/* ===== Notification bell ===== */
+.bell-wrap {
+  position: relative;
+  display: inline-flex;
+}
+.bell-btn {
+  position: relative;
+  padding: 8px 12px;
+}
+.bell-wrap.is-open .bell-btn {
+  background: var(--primary-50);
+  border-color: var(--primary-soft);
+  color: var(--primary-dark);
+}
+/* The ring matches the topbar background so the dot reads as a separate mark
+   rather than smudging into the bell icon behind it. */
+.bell-dot {
+  position: absolute;
+  top: 5px;
+  right: 8px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--danger);
+  border: 2px solid var(--surface);
+}
+
+.bell-panel {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  z-index: 50;
+  width: 340px;
+  max-height: 440px;
+  overflow-y: auto;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-lg);
+}
+.bell-head {
+  position: sticky;
+  top: 0;
+  background: var(--surface);
+  padding: 14px 16px 10px;
+  border-bottom: 1px solid var(--border);
+}
+.bell-head h2 {
+  font-size: .95rem;
+  font-weight: 600;
+  color: var(--text);
+}
+.bell-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.bell-item {
+  display: flex;
+  gap: 10px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+}
+.bell-item:last-child { border-bottom: 0; }
+.bell-item.is-unread { background: var(--primary-50); }
+.bell-tone {
+  flex: 0 0 auto;
+  width: 8px;
+  height: 8px;
+  margin-top: 6px;
+  border-radius: 50%;
+  background: var(--text-soft);
+}
+.bell-tone-done    { background: var(--done); }
+.bell-tone-work    { background: var(--work); }
+.bell-tone-pending { background: var(--pending); }
+.bell-tone-alert   { background: var(--danger); }
+.bell-item-body { min-width: 0; }
+.bell-message {
+  font-size: .88rem;
+  line-height: 1.35;
+  color: var(--text);
+}
+.bell-meta {
+  margin-top: 3px;
+  font-size: .73rem;
+  color: var(--text-soft);
+}
+.bell-empty {
+  padding: 24px 16px;
+  text-align: center;
+  font-size: .88rem;
+}
+.bell-empty .muted { color: var(--text-soft); font-size: .8rem; }
+
 /* ===== Main view ===== */
 .view {
   padding: 24px 24px 80px;
@@ -1669,6 +1764,10 @@ body.modal-open { overflow: hidden; }
   .logout-btn { padding: 8px 10px; }
   .topbar-btn-text { display: none; }
   .topbar-btn { padding: 8px 10px; }
+  /* The panel would overflow the viewport if it stayed anchored to the bell,
+     so on a narrow screen it spans the width of the topbar instead. */
+  .bell-wrap { position: static; }
+  .bell-panel { width: auto; left: 12px; right: 12px; }
   .view { padding: 16px 12px 80px; }
   .card, .complaint-card, .form-card { padding: 16px; }
   .welcome-name { font-size: 1.5rem; }
