@@ -246,33 +246,105 @@
     const categorySel = root.querySelector('#filterCategory');
 
     /**
-     * Withdraw a complaint the resident no longer needs. Only offered while the
-     * complaint is open; the API refuses completed ones either way.
+     * Withdraw a complaint the resident no longer needs. A reason is required
+     * so the society can see why complaints get pulled; picking "Other" makes
+     * the free-text box mandatory, since "Other" alone says nothing.
      */
+    function openDeleteModal(complaint) {
+      const reasons = storage.DELETION_REASONS;
+      const modal = ui.openModal(`
+        <header class="modal-head">
+          <div class="modal-head-text">
+            <p class="modal-eyebrow">Delete issue</p>
+            <h2>Delete this issue?</h2>
+            <p class="muted">
+              Your <strong>${ui.escapeHtml(complaint.category)}</strong> complaint
+              "${ui.escapeHtml(complaint.description)}" will be withdrawn and management
+              will no longer see it. This cannot be undone.
+            </p>
+          </div>
+          <button type="button" class="modal-close" data-close aria-label="Close">${ui.CLOSE_ICON}</button>
+        </header>
+        <form class="modal-form" id="deleteForm" novalidate>
+          <label class="field">
+            <span>Why are you deleting this? *</span>
+            <select name="reason" id="deleteReason" required data-autofocus>
+              <option value="" disabled selected>Select a reason</option>
+              ${reasons.map((r) => `<option value="${ui.escapeHtml(r.value)}">${ui.escapeHtml(r.label)}</option>`).join('')}
+            </select>
+          </label>
+          <label class="field" id="deleteCommentsField" hidden>
+            <span>Please tell us more *</span>
+            <textarea name="comments" id="deleteComments" rows="3" maxlength="500"
+              placeholder="Briefly describe why you are deleting this issue"></textarea>
+          </label>
+          <p class="login-error" id="deleteError" hidden></p>
+          <div class="modal-actions">
+            <button type="button" class="btn btn-ghost" data-close>No, keep it</button>
+            <button type="submit" class="btn btn-danger" id="deleteSubmit">
+              <span class="btn-label">Yes, delete it</span>
+            </button>
+          </div>
+        </form>
+      `);
+
+      const form = modal.root.querySelector('#deleteForm');
+      const reasonSel = modal.root.querySelector('#deleteReason');
+      const commentsField = modal.root.querySelector('#deleteCommentsField');
+      const commentsBox = modal.root.querySelector('#deleteComments');
+      const errorEl = modal.root.querySelector('#deleteError');
+      const submit = modal.root.querySelector('#deleteSubmit');
+
+      function setError(msg) {
+        errorEl.textContent = msg || '';
+        errorEl.hidden = !msg;
+      }
+
+      // The comments box only appears for "Other".
+      reasonSel.addEventListener('change', () => {
+        const isOther = reasonSel.value === 'OTHER';
+        commentsField.hidden = !isOther;
+        if (isOther) setTimeout(() => commentsBox.focus(), 40);
+        setError('');
+      });
+
+      form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        setError('');
+        const reason = reasonSel.value;
+        const comments = commentsBox.value.trim();
+
+        if (!reason) {
+          setError('Please choose a reason.');
+          return;
+        }
+        if (reason === 'OTHER' && !comments) {
+          setError('Please describe the reason.');
+          commentsBox.focus();
+          return;
+        }
+
+        submit.disabled = true;
+        submit.querySelector('.btn-label').textContent = 'Deleting…';
+        try {
+          await storage.deleteComplaint(complaint.id, { reason, comments });
+          allComplaints = allComplaints.filter((c) => String(c.id) !== String(complaint.id));
+          modal.close();
+          showToast('Issue deleted');
+          applyAndRender();
+        } catch (err) {
+          submit.disabled = false;
+          submit.querySelector('.btn-label').textContent = 'Yes, delete it';
+          setError(ui.messageFromError(err, 'Could not delete this issue'));
+        }
+      });
+    }
+
     function wireDeleteButtons() {
       listEl.querySelectorAll('[data-action="delete"]').forEach((btn) => {
-        btn.addEventListener('click', async () => {
+        btn.addEventListener('click', () => {
           const complaint = allComplaints.find((c) => String(c.id) === String(btn.dataset.id));
-          if (!complaint) return;
-
-          const confirmed = await ui.confirmDialog({
-            eyebrow: 'Delete issue',
-            title: 'Delete this issue?',
-            message: `Your <strong>${ui.escapeHtml(complaint.category)}</strong> complaint "${ui.escapeHtml(complaint.description)}" will be removed permanently and management will no longer see it. This cannot be undone.`,
-            confirmLabel: 'Yes, delete it',
-            cancelLabel: 'No, keep it',
-            danger: true,
-          });
-          if (!confirmed) return;
-
-          try {
-            await storage.deleteComplaint(complaint.id);
-            allComplaints = allComplaints.filter((c) => String(c.id) !== String(complaint.id));
-            showToast('Issue deleted');
-            applyAndRender();
-          } catch (err) {
-            showToast(ui.messageFromError(err, 'Could not delete this issue'), 'error');
-          }
+          if (complaint) openDeleteModal(complaint);
         });
       });
     }

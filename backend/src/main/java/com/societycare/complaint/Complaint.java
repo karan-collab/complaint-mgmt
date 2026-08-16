@@ -60,6 +60,17 @@ public class Complaint {
     @Column(name = "assigned_at")
     private OffsetDateTime assignedAt;
 
+    /** Set together with status 4; see V4__complaint_soft_delete.sql. */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "deletion_reason", length = 32)
+    private DeletionReason deletionReason;
+
+    @Column(name = "deletion_comments", columnDefinition = "TEXT")
+    private String deletionComments;
+
+    @Column(name = "deleted_at")
+    private OffsetDateTime deletedAt;
+
     @Column(name = "completed_at")
     private OffsetDateTime completedAt;
 
@@ -132,5 +143,29 @@ public class Complaint {
 
     public void setCompletedAt(OffsetDateTime completedAt) {
         this.completedAt = completedAt;
+    }
+
+    public DeletionReason getDeletionReason() {
+        return deletionReason;
+    }
+
+    public void setDeletionReason(DeletionReason deletionReason) {
+        this.deletionReason = deletionReason;
+    }
+
+    public String getDeletionComments() {
+        return deletionComments;
+    }
+
+    public void setDeletionComments(String deletionComments) {
+        this.deletionComments = deletionComments;
+    }
+
+    public OffsetDateTime getDeletedAt() {
+        return deletedAt;
+    }
+
+    public void setDeletedAt(OffsetDateTime deletedAt) {
+        this.deletedAt = deletedAt;
     }
 }

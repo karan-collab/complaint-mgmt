@@ -20,7 +20,7 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.context.WebApplicationContext;
 
 import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -466,19 +466,32 @@ class ComplaintWriteControllerTest {
 
     // ----------------------------------------------- delete (resident withdraws)
 
-    @Test
-    void delete_ownPendingComplaint_byResident_removesIt() throws Exception {
-        Long id = createComplaint(Category.PLUMBER, "Leaking sink in kitchen");
-
-        mockMvc.perform(delete("/api/v1/complaints/{id}", id)
-                .with(TestAuth.asResident(residentId, "Anita Sharma", residentFlat)))
-                .andExpect(status().isNoContent());
-
-        org.junit.jupiter.api.Assertions.assertTrue(complaintRepository.findById(id).isEmpty());
+    private String deleteReq(String reason, String comments) {
+        return comments == null
+                ? String.format("{\"reason\":\"%s\"}", reason)
+                : String.format("{\"reason\":\"%s\",\"comments\":\"%s\"}", reason, comments);
     }
 
     @Test
-    void delete_ownAssignedComplaint_byResident_removesIt() throws Exception {
+    void delete_ownPendingComplaint_marksDeletedAndKeepsTheRow() throws Exception {
+        Long id = createComplaint(Category.PLUMBER, "Leaking sink in kitchen");
+
+        mockMvc.perform(post("/api/v1/complaints/{id}/delete", id)
+                .with(TestAuth.asResident(residentId, "Anita Sharma", residentFlat))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(deleteReq("RESOLVED_ITSELF", null)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status.name").value("Deleted"))
+                .andExpect(jsonPath("$.deletionReason").value("RESOLVED_ITSELF"))
+                .andExpect(jsonPath("$.deletionReasonLabel").value("Resolved on its own"))
+                .andExpect(jsonPath("$.deletedAt").exists());
+
+        // the row survives - that is the whole point of the soft delete
+        org.junit.jupiter.api.Assertions.assertTrue(complaintRepository.findById(id).isPresent());
+    }
+
+    @Test
+    void delete_assignedComplaint_keepsTheWorkerItHadWhenWithdrawn() throws Exception {
         Long id = createComplaint(Category.PLUMBER, "Leaking sink in kitchen");
         mockMvc.perform(post("/api/v1/complaints/{id}/assign", id)
                 .with(TestAuth.asAdmin())
@@ -486,15 +499,80 @@ class ComplaintWriteControllerTest {
                 .content(objectMapper.writeValueAsBytes(assignReq(plumberId))))
                 .andExpect(status().isOk());
 
-        mockMvc.perform(delete("/api/v1/complaints/{id}", id)
-                .with(TestAuth.asResident(residentId, "Anita Sharma", residentFlat)))
-                .andExpect(status().isNoContent());
-
-        org.junit.jupiter.api.Assertions.assertTrue(complaintRepository.findById(id).isEmpty());
+        mockMvc.perform(post("/api/v1/complaints/{id}/delete", id)
+                .with(TestAuth.asResident(residentId, "Anita Sharma", residentFlat))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(deleteReq("HANDLED_PRIVATELY", null)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status.name").value("Deleted"))
+                .andExpect(jsonPath("$.professional.id").value(plumberId))
+                .andExpect(jsonPath("$.assignedAt").exists());
     }
 
     @Test
-    void delete_completedComplaint_returns409AndKeepsIt() throws Exception {
+    void delete_storesFreeTextComments() throws Exception {
+        Long id = createComplaint(Category.PLUMBER, "Leaking sink in kitchen");
+
+        mockMvc.perform(post("/api/v1/complaints/{id}/delete", id)
+                .with(TestAuth.asResident(residentId, "Anita Sharma", residentFlat))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(deleteReq("OTHER", "Neighbour fixed it for me")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.deletionComments").value("Neighbour fixed it for me"));
+    }
+
+    @Test
+    void delete_otherWithoutComments_returns400() throws Exception {
+        Long id = createComplaint(Category.PLUMBER, "Leaking sink in kitchen");
+
+        mockMvc.perform(post("/api/v1/complaints/{id}/delete", id)
+                .with(TestAuth.asResident(residentId, "Anita Sharma", residentFlat))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(deleteReq("OTHER", "   ")))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void delete_missingReason_returns400() throws Exception {
+        Long id = createComplaint(Category.PLUMBER, "Leaking sink in kitchen");
+
+        mockMvc.perform(post("/api/v1/complaints/{id}/delete", id)
+                .with(TestAuth.asResident(residentId, "Anita Sharma", residentFlat))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors[?(@.field=='reason')]").exists());
+    }
+
+    @Test
+    void delete_unknownReason_returns400() throws Exception {
+        Long id = createComplaint(Category.PLUMBER, "Leaking sink in kitchen");
+
+        mockMvc.perform(post("/api/v1/complaints/{id}/delete", id)
+                .with(TestAuth.asResident(residentId, "Anita Sharma", residentFlat))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(deleteReq("BECAUSE_I_SAID_SO", null)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void delete_twice_returns409() throws Exception {
+        Long id = createComplaint(Category.PLUMBER, "Leaking sink in kitchen");
+        mockMvc.perform(post("/api/v1/complaints/{id}/delete", id)
+                .with(TestAuth.asResident(residentId, "Anita Sharma", residentFlat))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(deleteReq("DUPLICATE", null)))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(post("/api/v1/complaints/{id}/delete", id)
+                .with(TestAuth.asResident(residentId, "Anita Sharma", residentFlat))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(deleteReq("DUPLICATE", null)))
+                .andExpect(status().isConflict());
+    }
+
+    @Test
+    void delete_completedComplaint_returns409() throws Exception {
         Long id = createComplaint(Category.PLUMBER, "Leaking sink in kitchen");
         mockMvc.perform(post("/api/v1/complaints/{id}/assign", id)
                 .with(TestAuth.asAdmin())
@@ -504,35 +582,63 @@ class ComplaintWriteControllerTest {
         mockMvc.perform(post("/api/v1/complaints/{id}/complete", id).with(TestAuth.asAdmin()))
                 .andExpect(status().isOk());
 
-        mockMvc.perform(delete("/api/v1/complaints/{id}", id)
-                .with(TestAuth.asResident(residentId, "Anita Sharma", residentFlat)))
+        mockMvc.perform(post("/api/v1/complaints/{id}/delete", id)
+                .with(TestAuth.asResident(residentId, "Anita Sharma", residentFlat))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(deleteReq("RESOLVED_ITSELF", null)))
                 .andExpect(status().isConflict());
-
-        org.junit.jupiter.api.Assertions.assertTrue(complaintRepository.findById(id).isPresent());
     }
 
     @Test
-    void delete_anotherFlatsComplaint_returns403AndKeepsIt() throws Exception {
+    void delete_anotherFlatsComplaint_returns403() throws Exception {
         Long id = createComplaint(Category.PLUMBER, "Leaking sink in kitchen");
 
-        mockMvc.perform(delete("/api/v1/complaints/{id}", id)
-                .with(TestAuth.asResident(999L, "Someone Else", "Z-999")))
+        mockMvc.perform(post("/api/v1/complaints/{id}/delete", id)
+                .with(TestAuth.asResident(999L, "Someone Else", "Z-999"))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(deleteReq("RESOLVED_ITSELF", null)))
                 .andExpect(status().isForbidden());
-
-        org.junit.jupiter.api.Assertions.assertTrue(complaintRepository.findById(id).isPresent());
-    }
-
-    @Test
-    void delete_byAdmin_isAllowed() throws Exception {
-        Long id = createComplaint(Category.PLUMBER, "Leaking sink in kitchen");
-
-        mockMvc.perform(delete("/api/v1/complaints/{id}", id).with(TestAuth.asAdmin()))
-                .andExpect(status().isNoContent());
     }
 
     @Test
     void delete_unknownComplaint_returns404() throws Exception {
-        mockMvc.perform(delete("/api/v1/complaints/{id}", 999_999L).with(TestAuth.asAdmin()))
+        mockMvc.perform(post("/api/v1/complaints/{id}/delete", 999_999L)
+                .with(TestAuth.asAdmin())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(deleteReq("RESOLVED_ITSELF", null)))
                 .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void deletedComplaint_disappearsFromListings_butIsOnTheDeletedList() throws Exception {
+        Long id = createComplaint(Category.PLUMBER, "Leaking sink in kitchen");
+        mockMvc.perform(post("/api/v1/complaints/{id}/delete", id)
+                .with(TestAuth.asResident(residentId, "Anita Sharma", residentFlat))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(deleteReq("RAISED_BY_MISTAKE", null)))
+                .andExpect(status().isOk());
+
+        // admin's full list
+        mockMvc.perform(get("/api/v1/complaints").with(TestAuth.asAdmin()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[?(@.id==" + id + ")]").doesNotExist());
+
+        // the resident's own list
+        mockMvc.perform(get("/api/v1/complaints")
+                .with(TestAuth.asResident(residentId, "Anita Sharma", residentFlat)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[?(@.id==" + id + ")]").doesNotExist());
+
+        // but it is on the record
+        mockMvc.perform(get("/api/v1/complaints/deleted").with(TestAuth.asAdmin()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[?(@.id==" + id + ")]").exists());
+    }
+
+    @Test
+    void deletedList_byResident_returns403() throws Exception {
+        mockMvc.perform(get("/api/v1/complaints/deleted")
+                .with(TestAuth.asResident(residentId, "Anita Sharma", residentFlat)))
+                .andExpect(status().isForbidden());
     }
 }
