@@ -7,6 +7,7 @@ import com.societycare.complaint.dto.AssignComplaintRequest;
 import com.societycare.complaint.dto.ComplaintDto;
 import com.societycare.complaint.dto.CreateComplaintRequest;
 import com.societycare.complaint.dto.DeleteComplaintRequest;
+import com.societycare.notification.NotificationService;
 import com.societycare.professional.Professional;
 import com.societycare.professional.ProfessionalRepository;
 import com.societycare.resident.Resident;
@@ -30,17 +31,20 @@ public class ComplaintService {
     private final ProfessionalRepository professionalRepository;
     private final StatusRepository statusRepository;
     private final ComplaintMapper complaintMapper;
+    private final NotificationService notificationService;
 
     public ComplaintService(ComplaintRepository complaintRepository,
                             ResidentRepository residentRepository,
                             ProfessionalRepository professionalRepository,
                             StatusRepository statusRepository,
-                            ComplaintMapper complaintMapper) {
+                            ComplaintMapper complaintMapper,
+                            NotificationService notificationService) {
         this.complaintRepository = complaintRepository;
         this.residentRepository = residentRepository;
         this.professionalRepository = professionalRepository;
         this.statusRepository = statusRepository;
         this.complaintMapper = complaintMapper;
+        this.notificationService = notificationService;
     }
 
     /** Active complaints only; withdrawn ones are excluded from every listing. */
@@ -84,6 +88,7 @@ public class ComplaintService {
         complaint.setStatus(assignmentPending);
 
         Complaint saved = complaintRepository.save(complaint);
+        notificationService.recordComplaintRaised(saved);
         return complaintMapper.toDto(saved);
     }
 
@@ -117,12 +122,18 @@ public class ComplaintService {
                     + " does not match complaint category " + complaint.getCategory());
         }
 
+        // Captured before the mutation: a ticket already in Pending Work is
+        // being handed over, which reads differently to a first assignment.
+        boolean reassigned = statusId == Status.PENDING_WORK;
+
         complaint.setProfessional(professional);
         complaint.setStatus(statusRepository.getReferenceById(Status.PENDING_WORK));
         // Re-assigning restarts the clock: assignedAt tracks the current worker.
         complaint.setAssignedAt(OffsetDateTime.now(ZoneOffset.UTC));
 
-        return complaintMapper.toDto(complaintRepository.save(complaint));
+        Complaint saved = complaintRepository.save(complaint);
+        notificationService.recordWorkerAssigned(saved, professional, reassigned);
+        return complaintMapper.toDto(saved);
     }
 
     /**
@@ -139,11 +150,16 @@ public class ComplaintService {
                     + complaint.getStatus().getStatusName() + ")");
         }
 
+        // Read before it is cleared, so the resident is told who came off.
+        Professional previousWorker = complaint.getProfessional();
+
         complaint.setProfessional(null);
         complaint.setAssignedAt(null);
         complaint.setStatus(statusRepository.getReferenceById(Status.ASSIGNMENT_PENDING));
 
-        return complaintMapper.toDto(complaintRepository.save(complaint));
+        Complaint saved = complaintRepository.save(complaint);
+        notificationService.recordWorkerRemoved(saved, previousWorker);
+        return complaintMapper.toDto(saved);
     }
 
     /**
@@ -169,7 +185,9 @@ public class ComplaintService {
         complaint.setCompletedAt(null);
         complaint.setStatus(statusRepository.getReferenceById(Status.ASSIGNMENT_PENDING));
 
-        return complaintMapper.toDto(complaintRepository.save(complaint));
+        Complaint saved = complaintRepository.save(complaint);
+        notificationService.recordComplaintReopened(saved);
+        return complaintMapper.toDto(saved);
     }
 
     @Transactional
@@ -185,7 +203,9 @@ public class ComplaintService {
         complaint.setStatus(statusRepository.getReferenceById(Status.COMPLETE));
         complaint.setCompletedAt(OffsetDateTime.now(ZoneOffset.UTC));
 
-        return complaintMapper.toDto(complaintRepository.save(complaint));
+        Complaint saved = complaintRepository.save(complaint);
+        notificationService.recordComplaintCompleted(saved);
+        return complaintMapper.toDto(saved);
     }
 
     /**
@@ -221,7 +241,9 @@ public class ComplaintService {
         complaint.setDeletedAt(OffsetDateTime.now(ZoneOffset.UTC));
         complaint.setStatus(statusRepository.getReferenceById(Status.DELETED));
 
-        return complaintMapper.toDto(complaintRepository.save(complaint));
+        Complaint saved = complaintRepository.save(complaint);
+        notificationService.recordComplaintWithdrawn(saved);
+        return complaintMapper.toDto(saved);
     }
 
     private Complaint getComplaintOrThrow(Long id) {

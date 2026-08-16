@@ -7,10 +7,15 @@ spring:
     open-in-view: false
     hibernate:
       ddl-auto: validate
-    properties:
-      hibernate:
-        jdbc:
-          time_zone: UTC
+    # Do NOT add hibernate.jdbc.time_zone here. It used to be set to UTC, and it
+    # shifted every timestamp the application wrote by the JVM's offset (5h30m
+    # on an IST machine): "just now" came back as "5 hours ago".
+    #
+    # That property exists for columns declared plain TIMESTAMP, which carry no
+    # zone of their own and need one supplied. Every timestamp column in this
+    # schema is TIMESTAMP WITH TIME ZONE, so the offset already travels with the
+    # value - converting it a second time on the way to the driver double-counts.
+    # Guarded by TimestampRoundTripTest.
   jackson:
     serialization:
       write-dates-as-timestamps: false

@@ -1,5 +1,6 @@
 package com.societycare.complaint;
 
+import com.societycare.notification.NotificationRepository;
 import com.societycare.professional.Professional;
 import com.societycare.professional.ProfessionalRepository;
 import com.societycare.resident.Resident;
@@ -35,6 +36,7 @@ class ComplaintControllerTest {
     @Autowired private ResidentRepository residentRepository;
     @Autowired private ProfessionalRepository professionalRepository;
     @Autowired private ComplaintRepository complaintRepository;
+    @Autowired private NotificationRepository notificationRepository;
     @Autowired private StatusRepository statusRepository;
 
     private MockMvc mockMvc;
@@ -45,6 +47,7 @@ class ComplaintControllerTest {
                 .apply(springSecurity())
                 .build();
 
+        notificationRepository.deleteAll();
         complaintRepository.deleteAll();
         professionalRepository.deleteAll();
         residentRepository.deleteAll();
