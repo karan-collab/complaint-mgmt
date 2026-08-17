@@ -1,5 +1,15 @@
-# Production stack on the VPS. Images are pulled from GHCR (built by deploy workflow).
-# Usage on server: docker compose -f docker-compose.prod.yml --env-file .env pull && docker compose -f docker-compose.prod.yml --env-file .env up -d
+# A SocietyCare stack on the VPS. Images are pulled from GHCR (built by the
+# deploy workflow); nothing is compiled on the server.
+#
+# One file serves both environments. The -p flag is what keeps them apart: it
+# sets the Compose project name, which prefixes the containers, the network and
+# - crucially - the pgdata volume. societycare-beta and societycare-prod
+# therefore have entirely separate databases.
+#
+#   docker compose -p societycare-prod -f docker-compose.prod.yml --env-file prod/.env up -d
+#   docker compose -p societycare-beta -f docker-compose.prod.yml --env-file beta/.env up -d
+#
+# In practice deploy-stack.sh does this for you.
 
 services:
   postgres:
@@ -41,7 +51,10 @@ services:
     image: ${WEB_IMAGE}
     restart: unless-stopped
     ports:
-      - "127.0.0.1:8080:80"
+      # 127.0.0.1 only: Caddy is the sole thing the internet may reach, and it
+      # forwards here. Each environment needs its own host port - prod 8080,
+      # beta 8081 - because two programs cannot listen on one port.
+      - "127.0.0.1:${WEB_PORT:-8080}:80"
     depends_on:
       api:
         condition: service_healthy

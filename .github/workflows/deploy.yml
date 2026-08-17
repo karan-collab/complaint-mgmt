@@ -1,5 +1,17 @@
 name: Deploy
 
+# Build once, then promote the SAME images through beta to production.
+#
+#   push to main ──► build-and-push ──► deploy-beta ──► deploy-production
+#                    (tests, images)     (automatic)     (waits for approval)
+#
+# Nothing is rebuilt between beta and production: both stages deploy the image
+# tagged with this commit's SHA. Whatever you checked on beta is bit-for-bit
+# what residents get, so a dependency cannot quietly change underneath you.
+#
+# The approval gate is not in this file - it comes from the "production"
+# GitHub Environment having required reviewers configured. See deploy/README.md.
+
 on:
   push:
     branches: [main]
@@ -25,6 +37,8 @@ jobs:
           java-version: "11"
           cache: maven
 
+      # Nothing is built or shipped if the suite fails, so broken code cannot
+      # reach a server even by accident.
       - name: Run tests
         working-directory: backend
         run: mvn -s settings.xml verify
@@ -68,48 +82,88 @@ jobs:
       owner: ${{ steps.meta.outputs.owner }}
       sha: ${{ steps.meta.outputs.sha }}
 
-  deploy:
+  deploy-beta:
     runs-on: ubuntu-latest
     needs: build-and-push
-    # secrets.* cannot be used in job-level if (GitHub Actions restriction).
-    # Set repository variable DEPLOY_ENABLED=true when VPS secrets are configured.
+    # secrets.* cannot be used in a job-level if (GitHub Actions restriction), so
+    # this is gated on a repository *variable* instead.
     if: github.ref == 'refs/heads/main' && vars.DEPLOY_ENABLED == 'true'
+    environment:
+      name: beta
+      url: https://beta.example.com
     steps:
       - uses: actions/checkout@v4
 
-      - name: Copy compose files to server
+      - name: Copy deploy files to the server
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.DEPLOY_HOST }}
           username: ${{ secrets.DEPLOY_USER }}
           key: ${{ secrets.DEPLOY_SSH_KEY }}
-          source: deploy/docker-compose.prod.yml,deploy/Caddyfile,deploy/bootstrap-admin.sql
+          source: deploy/docker-compose.prod.yml,deploy/Caddyfile,deploy/bootstrap-admin.sql,deploy/scripts/*,deploy/systemd/*
           target: /opt/societycare
           strip_components: 1
 
-      - name: Pull images and restart stack
+      - name: Deploy beta
         uses: appleboy/ssh-action@v1.0.3
         env:
           OWNER: ${{ needs.build-and-push.outputs.owner }}
           SHA: ${{ needs.build-and-push.outputs.sha }}
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          GHCR_PAT: ${{ secrets.GHCR_PAT }}
+          REPO_OWNER: ${{ github.repository_owner }}
         with:
           host: ${{ secrets.DEPLOY_HOST }}
           username: ${{ secrets.DEPLOY_USER }}
           key: ${{ secrets.DEPLOY_SSH_KEY }}
-          envs: OWNER,SHA
+          envs: OWNER,SHA,POSTGRES_PASSWORD,DB_PASSWORD,JWT_SECRET,GHCR_PAT,REPO_OWNER
           script: |
             set -euo pipefail
-            cd /opt/societycare
-            cat > .env <<EOF
-            API_IMAGE=ghcr.io/${OWNER}/societycare-api:${SHA}
-            WEB_IMAGE=ghcr.io/${OWNER}/societycare-web:${SHA}
-            DB_USER=societycare
-            POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}
-            DB_PASSWORD=${{ secrets.DB_PASSWORD }}
-            JWT_SECRET=${{ secrets.JWT_SECRET }}
-            APP_CORS_ALLOWED_ORIGINS=
-            EOF
-            echo "${{ secrets.GHCR_PAT }}" | docker login ghcr.io -u ${{ github.repository_owner }} --password-stdin
-            docker compose -f docker-compose.prod.yml --env-file .env pull
-            docker compose -f docker-compose.prod.yml --env-file .env up -d
-            docker image prune -f
+            chmod +x /opt/societycare/scripts/*.sh
+            echo "$GHCR_PAT" | docker login ghcr.io -u "$REPO_OWNER" --password-stdin
+            /opt/societycare/scripts/deploy-stack.sh beta \
+              "ghcr.io/${OWNER}/societycare-api:${SHA}" \
+              "ghcr.io/${OWNER}/societycare-web:${SHA}" \
+              8081
+
+  deploy-production:
+    runs-on: ubuntu-latest
+    # Waits for beta to succeed AND for a human to approve, because the
+    # "production" environment has required reviewers configured in GitHub.
+    needs: [build-and-push, deploy-beta]
+    if: github.ref == 'refs/heads/main' && vars.DEPLOY_ENABLED == 'true'
+    environment:
+      name: production
+      url: https://app.example.com
+    steps:
+      - uses: actions/checkout@v4
+
+      # Deliberately no build step, and no file copy: the images are the exact
+      # ones beta has been running, and deploy-beta already put the current
+      # compose file and scripts on the server. This job is guaranteed to run
+      # after it by `needs`.
+      - name: Deploy production
+        uses: appleboy/ssh-action@v1.0.3
+        env:
+          OWNER: ${{ needs.build-and-push.outputs.owner }}
+          SHA: ${{ needs.build-and-push.outputs.sha }}
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          GHCR_PAT: ${{ secrets.GHCR_PAT }}
+          REPO_OWNER: ${{ github.repository_owner }}
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          envs: OWNER,SHA,POSTGRES_PASSWORD,DB_PASSWORD,JWT_SECRET,GHCR_PAT,REPO_OWNER
+          script: |
+            set -euo pipefail
+            chmod +x /opt/societycare/scripts/*.sh
+            echo "$GHCR_PAT" | docker login ghcr.io -u "$REPO_OWNER" --password-stdin
+            /opt/societycare/scripts/deploy-stack.sh prod \
+              "ghcr.io/${OWNER}/societycare-api:${SHA}" \
+              "ghcr.io/${OWNER}/societycare-web:${SHA}" \
+              8080

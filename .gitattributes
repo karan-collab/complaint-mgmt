@@ -1,0 +1,19 @@
+# This repository is CRLF throughout (see HANDOFF.md section 6) - except for
+# files that Linux has to *execute*.
+#
+# A shell script with CRLF endings does not run at all: the shebang becomes
+# "#!/usr/bin/env bash\r", and the loader looks for an interpreter literally
+# named "bash\r", giving the memorable error
+#
+#     env: bash\r: No such file or directory
+#
+# deploy/scripts/hash-password.sh was committed with CRLF and had exactly this
+# problem, which is easy to miss because the file looks perfectly normal.
+#
+# These rules pin the affected files so an editor, or a bulk line-ending pass
+# over the repo, cannot silently break them again.
+*.sh              text eol=lf
+deploy/systemd/*  text eol=lf
+
+# Everything else keeps whatever it has; no global rule here on purpose, so
+# adding this file does not renormalise the entire working tree.
