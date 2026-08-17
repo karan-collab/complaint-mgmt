@@ -5,8 +5,8 @@ HTTPS.
 
 | Environment | Domain | Host port | Compose project | Deployed |
 |---|---|---|---|---|
-| **beta** | `beta.example.com` | 8081 | `societycare-beta` | automatically, on every push to `main` |
-| **production** | `app.example.com` | 8080 | `societycare-prod` | after beta succeeds **and** you approve |
+| **beta** | `beta.complaintsmgmt.com` | 8081 | `societycare-beta` | automatically, on every push to `main` |
+| **production** | `complaintsmgmt.com` | 8080 | `societycare-prod` | after beta succeeds **and** you approve |
 
 ## Architecture
 
@@ -223,15 +223,31 @@ Resulting in:
 
 ### 4.4 DNS
 
-Two **A records**, both pointing at the server's IP:
+Three **A records**, all pointing at the server's IP (`203.0.113.5` below is a
+stand-in for your actual IP):
 
-```
-app.yourdomain.com   → 203.0.113.5
-beta.yourdomain.com  → 203.0.113.5
+| Type | Name | Value |
+|---|---|---|
+| A | `@` (the bare domain) | `203.0.113.5` |
+| A | `www` | `203.0.113.5` |
+| A | `beta` | `203.0.113.5` |
+
+Do this **before** reloading Caddy — certificate issuance requires each name to
+already resolve here, and a failed issuance has a cool-off period.
+
+Check with:
+
+```bash
+dig +short complaintsmgmt.com beta.complaintsmgmt.com
 ```
 
-Do this **before** installing Caddy — certificate issuance requires the names to
-already resolve here.
+Both should print the server's IP. DNS can take a few minutes to propagate.
+
+> **If you use Cloudflare DNS**, set each record to **DNS only** (the grey cloud,
+> not the orange one). With Cloudflare's proxy on, it intercepts ports 80 and 443
+> and answers with its own certificate — Caddy never sees the challenge request
+> and certificate issuance fails. Grey cloud means Cloudflare just answers the
+> DNS lookup and gets out of the way, which is what this setup needs.
 
 ### 4.5 Caddy
 
@@ -242,8 +258,8 @@ curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' | sudo 
 sudo apt update && sudo apt install -y caddy
 ```
 
-Edit `/opt/societycare/Caddyfile`: replace `example.com` with your domain, and
-set the beta password hash:
+The domain is already set to `complaintsmgmt.com` in the Caddyfile. The one edit
+still needed is the beta password — generate a hash and paste it in:
 
 ```bash
 caddy hash-password
@@ -383,5 +399,5 @@ POSTGRES_PASSWORD=... DB_PASSWORD=... JWT_SECRET=... \
 - [ ] `seed.enabled` false in prod (the default in `application-prod.yml`)
 - [ ] Swagger disabled in prod (the default)
 - [ ] HTTPS working on both domains
-- [ ] An uptime check pointed at `app.yourdomain.com`
+- [ ] An uptime check pointed at `complaintsmgmt.com`
 - [ ] `.env` files and `backend/.h2-data/` never committed
