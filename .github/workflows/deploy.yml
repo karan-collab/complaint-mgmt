@@ -90,7 +90,7 @@ jobs:
     if: github.ref == 'refs/heads/main' && vars.DEPLOY_ENABLED == 'true'
     environment:
       name: beta
-      url: https://beta.example.com
+      url: https://beta.complaintsmgmt.com
     steps:
       - uses: actions/checkout@v4
 
@@ -136,7 +136,7 @@ jobs:
     if: github.ref == 'refs/heads/main' && vars.DEPLOY_ENABLED == 'true'
     environment:
       name: production
-      url: https://app.example.com
+      url: https://complaintsmgmt.com
     steps:
       - uses: actions/checkout@v4
 
