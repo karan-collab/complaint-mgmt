@@ -1,0 +1,27 @@
+# Templated unit: the part after @ is the environment name, so one file serves
+# both stacks (societycare-backup@prod, societycare-backup@beta).
+#
+# Install:
+#   sudo cp deploy/systemd/societycare-backup@.* /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now societycare-backup@prod.timer
+#   sudo systemctl enable --now societycare-backup@beta.timer
+#
+# Output goes to the journal:  journalctl -u societycare-backup@prod
+[Unit]
+Description=SocietyCare database backup (%i)
+Documentation=file:///opt/societycare/scripts/backup-db.sh
+# Nothing to back up if Docker is not up yet.
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+User=deploy
+WorkingDirectory=/opt/societycare
+# Uncomment once rclone is configured, so the dump also leaves this machine.
+# Environment=RCLONE_REMOTE=b2:societycare-backups
+ExecStart=/opt/societycare/scripts/backup-db.sh %i
+
+# A backup that hangs must not block the next one forever.
+TimeoutStartSec=30min

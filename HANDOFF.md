@@ -239,6 +239,78 @@ Tests: 101 -> 107.
 
 ---
 
+## 4c. Third session - in-app notifications, and deployment groundwork
+
+**The bell.** One component in the shared topbar serves both roles
+(`scripts/notifications.js`); `updateTopbar()` in `app.js` starts and stops it.
+Residents are told when a worker is assigned, reassigned or removed, and when a
+complaint is completed or reopened. Management is told when a flat raises or
+withdraws an issue. `V5__notification.sql` adds `t_notification` with a CHECK
+pairing `recipient_type` to `resident_id`.
+
+Three decisions worth not re-litigating:
+
+- **Management is one logical inbox**, not a row per admin account. There is one
+  management login and the useful question is "has anyone seen this", not "has
+  this particular admin seen it". Widening it means adding `admin_id` and
+  extending the CHECK.
+- **The message text is stored, not derived.** A notification records what was
+  true when it fired; re-deriving "Suresh Patel has been assigned" from the
+  complaint would silently rewrite old notifications after a reassignment.
+- **`recipient_type` is derived from the event type** in `NotificationType`, not
+  passed separately, so a resident-facing event cannot be addressed to
+  management or vice versa.
+
+**Delivery is polling, not push.** There is no WebSocket in this stack. Only the
+unread *count* is polled (45s, plus every route change and every tab focus); the
+full list is fetched once when the panel opens, which is also the read receipt.
+Polling stops while the tab is hidden or nobody is signed in.
+
+**Retention is 45 days**, swept daily at 03:30 by `NotificationRetentionJob`.
+Complaints are untouched by it — see §5.
+
+**The FK trap.** Notifications reference complaints, and `ResidentService.delete`
+hard-deletes a resident's complaints, so notifications must be cleared first or
+the foreign key rejects the delete. Done explicitly in the service rather than
+with `ON DELETE CASCADE`, to match how complaints are already deleted and to
+keep the blast radius of "remove this resident" readable in one method. The
+same ordering had to be added to four test classes' `@BeforeEach`.
+
+**A pre-existing timezone bug was fixed here.**
+`spring.jpa.properties.hibernate.jdbc.time_zone: UTC` shifted every timestamp
+the app wrote by the JVM's offset (5h30m on an IST machine). That property is
+for plain `TIMESTAMP` columns; every column here is `TIMESTAMP WITH TIME ZONE`
+and already carries its offset, so it was converted twice. Invisible on
+date-only displays, obvious the moment the bell showed relative times. Removed,
+with a comment in `application.yml` so it is not re-added, and guarded by
+`TimestampRoundTripTest`. **Rows written before that fix keep the old skew** —
+the correcting SQL is in the session notes, deliberately not a migration.
+
+Note that test asserts on a *second* request: the POST response hands back the
+in-memory entity, so it reports the right value even when what reached the
+database was shifted. Only a fresh read proves the round trip.
+
+**Two bugs found by running the prod-like Docker stack locally**, neither
+reachable from the split dev setup: `config.js` chose the API base from the
+hostname alone (so the Docker stack, also on localhost, tried to call an
+unpublished port 8080), and nginx sent no `Cache-Control` at all, which with no
+build step means a browser can run stale JS against a newer API after a deploy.
+
+Tests: 107 -> 126.
+
+**Deployment.** Beta and production, both on one VPS, separated by Compose
+project name (which is what gives each its own `pgdata` volume). Images are built
+once and the *same* SHA tag is promoted from beta to production, gated by a
+required reviewer on the `production` GitHub Environment. `deploy-stack.sh` runs
+on the server and rolls back to the previous image tags if the new stack does not
+report healthy. Backups are `backup-db.sh` nightly via a templated systemd timer,
+verified three ways before being kept, with `restore-db.sh` for the way back —
+and the recommended routine is restoring production's dump into beta, which
+tests the backup and gives beta realistic data at the same time. Full detail in
+`deploy/README.md`.
+
+---
+
 ## 5. Decisions made, and why
 
 These were discussed and settled — don't silently reverse them.
@@ -376,12 +448,15 @@ principal. `@BeforeEach` wipes tables (complaints before residents — FK).
   `/complaints` list; every tab switch refetches everything (verified in the
   network tab). Correct at this size - see the pagination decision in §5 for
   when and how to change it.
-- **Notifications on status change**: scoped but not built. Summary — code is
-  easy (~1 day in-app; ~2 more for email); real blockers are missing contact
-  data (no email column; some residents have no phone), and for SMS/WhatsApp
-  in India the DLT / Meta approval process (weeks). Recommended order:
-  in-app → email → SMS/WhatsApp. Decide separately whether one-way
-  notification or a two-way comment thread (+3–4 days) is wanted.
+- **Notifications on status change**: in-app is **done** — see §4c. Email and
+  SMS/WhatsApp are still open; the blockers are unchanged (no email column, some
+  residents have no phone, and for SMS/WhatsApp in India the DLT / Meta approval
+  process takes weeks). Recommended order from here: email → SMS/WhatsApp.
+  Decide separately whether a two-way comment thread (+3–4 days) is wanted.
+- **No frontend tests still.** The bell is verified by driving a browser.
+- **Notifications do not link to their ticket.** Clicking a row does nothing.
+  The admin dashboard already deep-links to `#/admin/tickets` with the modal
+  open, so the plumbing exists and this is a small job.
 - **Preferred visit time slot** — reverted, see §5.
 - **Resident-side completed cards** show no completion date or who did the
   work; the data exists.

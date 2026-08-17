@@ -1,6 +1,37 @@
-# Replace example.com with your domain. Caddy obtains HTTPS certificates automatically.
-# The web container binds to 127.0.0.1:8080 on the host (see docker-compose.prod.yml).
+# Caddy runs on the host (not in Docker) and is the only thing the internet can
+# reach. It terminates HTTPS and forwards to the web container of each stack.
+#
+# Replace example.com with your real domain, then:
+#   sudo cp /opt/societycare/Caddyfile /etc/caddy/Caddyfile
+#   sudo systemctl reload caddy
+#
+# Naming a domain here is what triggers the certificate: Caddy obtains one from
+# Let's Encrypt automatically and renews it forever. Both names must already
+# point at this server's IP (an A record each) or issuance will fail.
+#
+# A request whose domain matches no block below is refused. That is deliberate -
+# it means the app answers only to the names you listed, so a stranger pointing
+# their domain at this IP, or a bot scanning the raw address, gets nothing.
 
-example.com {
-    reverse_proxy 127.0.0.1:8080
+# ---------------------------------------------------------------- production
+app.example.com {
+	reverse_proxy 127.0.0.1:8080
+}
+
+# ---------------------------------------------------------------------- beta
+#
+# Beta holds a copy of real resident data whenever you refresh it from a
+# production backup, so it should not be casually browsable. basic_auth keeps it
+# behind a shared password and, as a side effect, keeps it out of search
+# results. Generate the hash with:
+#
+#   caddy hash-password
+#
+# then paste it below and reload. Delete the basic_auth block if you would
+# rather leave beta open.
+beta.example.com {
+	basic_auth {
+		beta REPLACE_WITH_OUTPUT_OF_caddy_hash-password
+	}
+	reverse_proxy 127.0.0.1:8081
 }
