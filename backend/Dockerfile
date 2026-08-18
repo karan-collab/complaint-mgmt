@@ -8,11 +8,26 @@ COPY src ./src
 RUN mvn -s settings.xml -DskipTests package -q
 
 # Run stage
-FROM eclipse-temurin:11-jre-alpine
+#
+# jammy (Ubuntu), not alpine: Eclipse Temurin publishes no arm64 build of its
+# Alpine JRE images, so an alpine base pins this app to x86 hosts. The Ubuntu
+# images are published for both architectures, which is what lets the same
+# Dockerfile serve an Ampere/Graviton server, a Hetzner CAX box and an Apple
+# Silicon laptop.
+#
+# Costs roughly 90 MB more per image than alpine. Worth it: the image is pulled
+# once per deploy, and being tied to one CPU architecture is a far more
+# expensive constraint than the download.
+FROM eclipse-temurin:11-jre-jammy
 WORKDIR /app
 
-RUN apk add --no-cache curl \
-    && addgroup -S spring && adduser -S spring -G spring
+# curl is here for the healthcheck below, nothing else. The apt lists are
+# removed in the same layer so they do not end up in the image.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends curl \
+    && rm -rf /var/lib/apt/lists/* \
+    && groupadd --system spring \
+    && useradd --system --gid spring --no-create-home spring
 
 USER spring:spring
 
