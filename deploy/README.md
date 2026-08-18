@@ -57,18 +57,15 @@ docker compose --env-file .env up --build
 Open **http://localhost** — or set `WEB_PORT=8090` in `.env` if port 80 is
 taken, and use http://localhost:8090.
 
-**On an Apple Silicon Mac**, the API's base image (`eclipse-temurin:11-jre-alpine`)
-is only published for amd64, so prefix the *build* with:
+The images build and run natively on both `amd64` and `arm64`, so an Apple
+Silicon Mac needs no special flags. That is deliberate: the API's runtime base
+is `eclipse-temurin:11-jre-jammy` rather than the alpine variant, because
+Temurin publishes no arm64 build of its Alpine JRE images. Being tied to one CPU
+architecture would rule out ARM servers (Oracle Ampere, Hetzner CAX, AWS
+Graviton), which are the cheapest hosting available.
 
-```bash
-DOCKER_DEFAULT_PLATFORM=linux/amd64 docker compose --env-file .env up --build -d
-```
-
-Do **not** set that variable when merely starting an already-built stack — it
-forces Postgres to amd64 too, which is not cached locally. Plain
-`docker compose up -d` is correct for restarts. Docker will warn about the
-platform mismatch and run the amd64 image under emulation, which is what you
-want: it is the same image production runs.
+The deploy workflow builds both architectures and pushes them under one tag, so
+the server pulls whichever matches it without anyone choosing.
 
 ### First admin (prod seeding is disabled)
 
@@ -185,9 +182,22 @@ public, or keep them private and rely on `GHCR_PAT` (which the workflow does).
 
 - Ubuntu 24.04 LTS, **2 GB RAM minimum** (two Postgres instances plus two app
   stacks; 1 GB is not enough)
-- An Indian region if your residents are in India — DigitalOcean Bangalore or
-  Vultr Mumbai
+- **Either CPU architecture works** — the images are built for amd64 and arm64,
+  so ARM hosts are in play, and they are consistently the cheapest:
+
+  | Host | Arch | Cost | Note |
+  |---|---|---|---|
+  | Oracle Ampere A1 | arm64 | free | capacity is often unavailable; no support |
+  | Hetzner CAX11 | arm64 | ~€3.79 | EU only, ~150 ms from India |
+  | Vultr Mumbai | amd64 | ~$10 | low latency |
+  | DigitalOcean Bangalore | amd64 | ~$12 | low latency |
+
 - Firewall: open **22**, **80**, **443** and nothing else
+
+> On **Oracle Cloud** specifically, opening a port in the VCN Security List is
+> only half the job — their Ubuntu images ship their own `iptables` rules that
+> block traffic independently. If ports look open and still time out, that is
+> why.
 
 ### 4.2 Docker
 

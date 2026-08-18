@@ -43,6 +43,10 @@ jobs:
         working-directory: backend
         run: mvn -s settings.xml verify
 
+      # Emulation, so an amd64 runner can produce arm64 layers too.
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
@@ -63,6 +67,7 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: ./backend
+          platforms: linux/amd64,linux/arm64
           push: true
           tags: |
             ${{ env.REGISTRY }}/${{ steps.meta.outputs.owner }}/societycare-api:${{ steps.meta.outputs.sha }}
@@ -73,6 +78,7 @@ jobs:
         with:
           context: .
           file: docker/web/Dockerfile
+          platforms: linux/amd64,linux/arm64
           push: true
           tags: |
             ${{ env.REGISTRY }}/${{ steps.meta.outputs.owner }}/societycare-web:${{ steps.meta.outputs.sha }}
