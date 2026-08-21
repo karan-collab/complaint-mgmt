@@ -40,4 +40,22 @@ EXPOSE 8080
 
 ENV SPRING_PROFILES_ACTIVE=prod
 
+# JVM tuning for small containers. The defaults assume a machine with room to
+# spare and cost roughly 200 MB more than this app needs.
+#
+#   MaxRAMPercentage  the JVM sizes its heap from the CONTAINER limit, not the
+#                     host, so this adapts automatically to whatever box it
+#                     lands on. 60% of a 1 GB container is a 600 MB ceiling;
+#                     of a 4 GB one, 2.4 GB.
+#   UseSerialGC       G1 keeps per-region metadata and several GC threads. On a
+#                     one-core box with a small heap that overhead buys nothing;
+#                     the serial collector is both smaller and faster here.
+#   Xss512k           thread stacks default to ~2 MB each and this app runs 45+
+#                     threads. Spring's stacks are nowhere near 512 KB deep.
+#   MaxMetaspaceSize  class metadata is otherwise uncapped, so a leak has no
+#                     ceiling and the container gets OOM-killed instead of the
+#                     JVM failing loudly.
+ENV JAVA_TOOL_OPTIONS="-XX:MaxRAMPercentage=60 -XX:+UseSerialGC -Xss512k -XX:MaxMetaspaceSize=128m"
+
+
 ENTRYPOINT ["java", "-jar", "app.jar"]

@@ -6,6 +6,14 @@ services:
       POSTGRES_DB: societycare
       POSTGRES_USER: ${DB_USER:-societycare}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+    # Kept in step with deploy/docker-compose.prod.yml so the local stack has
+    # the same memory profile as the server.
+    command: >
+      postgres
+      -c shared_buffers=64MB
+      -c max_connections=25
+      -c work_mem=2MB
+      -c maintenance_work_mem=32MB
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
