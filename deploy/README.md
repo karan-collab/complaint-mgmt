@@ -1,12 +1,19 @@
 # SocietyCare deployment
 
-Two environments on one Ubuntu VPS, deployed by GitHub Actions, with Caddy for
-HTTPS.
+Deployed to an Ubuntu VPS by GitHub Actions, with Caddy for HTTPS. Production
+is required; beta is optional.
 
 | Environment | Domain | Host port | Compose project | Deployed |
 |---|---|---|---|---|
-| **beta** | `beta.complaintsmgmt.com` | 8081 | `societycare-beta` | automatically, on every push to `main` |
-| **production** | `complaintsmgmt.com` | 8080 | `societycare-prod` | after beta succeeds **and** you approve |
+| **beta** *(optional)* | `beta.complaintsmgmt.com` | 8081 | `societycare-beta` | on every push to `main`, when `BETA_ENABLED=true` |
+| **production** | `complaintsmgmt.com` | 8080 | `societycare-prod` | after you approve — and after beta, if beta is enabled |
+
+**Beta is opt-in.** Leave `BETA_ENABLED` unset and production deploys on its own;
+the beta job is skipped. Turn it on once a beta host exists and nothing else
+changes. Running production alone is a reasonable choice for a small
+deployment — the trade-off is that database migrations reach real data on their
+first run, so rehearse them with the local stack in section 1 and take a backup
+before deploying one.
 
 ## Architecture
 
@@ -109,8 +116,13 @@ real Postgres.** Section 1 is how you cover that before deploying.
 [`.github/workflows/deploy.yml`](../.github/workflows/deploy.yml):
 
 ```
-push to main ──► build-and-push ──► deploy-beta ──► deploy-production
-                 tests, images       automatic      waits for approval
+BETA_ENABLED=true
+  push to main ──► build-and-push ──► deploy-beta ──► deploy-production
+                   tests, images       automatic      waits for approval
+
+BETA_ENABLED unset (production only)
+  push to main ──► build-and-push ──► deploy-production
+                   tests, images       waits for approval
 ```
 
 `build-and-push` tags both images with the commit SHA. Beta and production then
@@ -140,19 +152,20 @@ That is what makes `deploy-production` pause until you press Approve.
 
 ### Repository variable
 
-| Variable | Value | Where |
+| Variable | Value | Effect |
 |---|---|---|
-| `DEPLOY_ENABLED` | `true` | Settings → Secrets and variables → Actions → Variables |
+| `DEPLOY_ENABLED` | `true` | Enables deployment at all. Until set, pushes build and test only |
+| `BETA_ENABLED` | `true` | Adds the beta stage. Leave unset to deploy production alone |
 
-Until this is set, pushes build and test only. Nothing is deployed.
+Both live under Settings → Secrets and variables → Actions → **Variables**.
 
 ### Secrets
 
-**Repository-level** (same for both environments — one server):
+**Repository-level** (shared by both environments):
 
 | Secret | Description |
 |---|---|
-| `DEPLOY_HOST` | VPS IP or hostname |
+| `DEPLOY_HOST` | VPS IP or hostname. **Define this per environment instead** if beta and production live on different machines — an environment secret overrides the repository one |
 | `DEPLOY_USER` | SSH user, e.g. `deploy` |
 | `DEPLOY_SSH_KEY` | Private SSH key (PEM) |
 | `GHCR_PAT` | GitHub PAT with `read:packages`, so the server can pull images |
@@ -180,8 +193,16 @@ public, or keep them private and rely on `GHCR_PAT` (which the workflow does).
 
 ### 4.1 The server
 
-- Ubuntu 24.04 LTS, **2 GB RAM minimum** (two Postgres instances plus two app
-  stacks; 1 GB is not enough)
+- Ubuntu 24.04 LTS. **How much RAM depends on how many environments you run:**
+
+  | Setup | Needs | Fits on |
+  |---|---|---|
+  | Production only | ~260 MB + OS | **1 GB** (an Oracle free micro) |
+  | Production + beta, one box | ~490 MB + OS, plus a deploy spike | 2 GB |
+  | One environment per box | ~260 MB each | **two 1 GB boxes** |
+
+  Those figures are measured, not estimated, and assume the memory tuning in
+  section 7. Untuned, one stack costs ~555 MB and none of the 1 GB options work.
 - **Either CPU architecture works** — the images are built for amd64 and arm64,
   so ARM hosts are in play, and they are consistently the cheapest:
 
@@ -396,7 +417,41 @@ POSTGRES_PASSWORD=... DB_PASSWORD=... JWT_SECRET=... \
 
 ---
 
-## 7. Before you tell a single resident the address
+## 7. Memory
+
+The stack is deliberately tuned to fit a small box. Measured per environment:
+
+| Container | Untuned | Tuned |
+|---|---|---|
+| api (Spring Boot) | 477 MB | **262 MB** |
+| postgres | 69 MB | **18 MB** |
+| web (nginx) | 9 MB | 9 MB |
+| **total** | **555 MB** | **289 MB** |
+
+Constrained to a 420 MB container limit the API starts healthy in ~15 seconds
+and settles at ~204 MB, which is what makes a 1 GB host viable at all.
+
+Where the savings come from:
+
+- **`JAVA_TOOL_OPTIONS` in backend/Dockerfile.** The JVM sizes its heap from the
+  *container* limit (`MaxRAMPercentage=60`), so it adapts to whatever box it
+  lands on. `UseSerialGC` drops G1's per-region metadata and GC threads, which
+  buy nothing on one core. `-Xss512k` matters more than it looks: stacks default
+  to ~2 MB each and the app runs 45+ threads.
+- **Hikari pool 10 → 5** and **Tomcat threads 200 → 25** in
+  `application-prod.yml`. Every pooled connection is a backend process on the
+  Postgres side, and 200 worker threads reserve stack space for concurrency this
+  app will never see.
+- **Postgres told to be modest** in the compose file: `shared_buffers=64MB`,
+  `max_connections=25`. It otherwise assumes it owns the machine.
+
+The figure that actually sizes your host is not the steady state but the
+**deploy spike**: `compose up -d` starts the new container before stopping the
+old, so briefly two APIs run at once. Budget for it.
+
+---
+
+## 8. Before you tell a single resident the address
 
 - [ ] `admin`/`admin` changed on production
 - [ ] Fresh `JWT_SECRET` per environment — **never** the dev default in

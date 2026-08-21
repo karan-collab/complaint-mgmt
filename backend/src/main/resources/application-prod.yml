@@ -3,8 +3,23 @@ spring:
     url: ${DB_URL}
     username: ${DB_USER}
     password: ${DB_PASSWORD}
+    hikari:
+      # Every pooled connection is a separate backend process on the Postgres
+      # side, so the default of 10 costs memory at both ends. A society sees a
+      # handful of concurrent requests; 5 is ample and leaves the database room.
+      maximum-pool-size: 5
+      minimum-idle: 2
   jpa:
     show-sql: false
+
+server:
+  tomcat:
+    threads:
+      # Tomcat defaults to 200 worker threads. At ~512 KB of stack each that is
+      # 100 MB reserved for concurrency this app will never see, and it lets a
+      # traffic spike exhaust memory rather than queue politely.
+      max: 25
+      min-spare: 5
 
 logging:
   level:

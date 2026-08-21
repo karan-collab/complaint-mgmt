@@ -1,13 +1,18 @@
 name: Deploy
 
-# Build once, then promote the SAME images through beta to production.
+# Build once, then deploy the SAME images - optionally via beta first.
 #
-#   push to main ──► build-and-push ──► deploy-beta ──► deploy-production
-#                    (tests, images)     (automatic)     (waits for approval)
+#   BETA_ENABLED=true:
+#     push to main ──► build-and-push ──► deploy-beta ──► deploy-production
+#                      (tests, images)     (automatic)     (waits for approval)
 #
-# Nothing is rebuilt between beta and production: both stages deploy the image
-# tagged with this commit's SHA. Whatever you checked on beta is bit-for-bit
-# what residents get, so a dependency cannot quietly change underneath you.
+#   BETA_ENABLED unset (a single production environment):
+#     push to main ──► build-and-push ──► deploy-production
+#                      (tests, images)     (waits for approval)
+#
+# Nothing is ever rebuilt between stages: every deploy uses the image tagged
+# with this commit's SHA, so what you checked is bit-for-bit what residents get
+# and a dependency cannot quietly change underneath you.
 #
 # The approval gate is not in this file - it comes from the "production"
 # GitHub Environment having required reviewers configured. See deploy/README.md.
@@ -92,8 +97,14 @@ jobs:
     runs-on: ubuntu-latest
     needs: build-and-push
     # secrets.* cannot be used in a job-level if (GitHub Actions restriction), so
-    # this is gated on a repository *variable* instead.
-    if: github.ref == 'refs/heads/main' && vars.DEPLOY_ENABLED == 'true'
+    # these are gated on repository *variables*.
+    #
+    # Beta is opt-in: set BETA_ENABLED=true once a beta host exists. Until then
+    # this job is skipped and production deploys on its own.
+    if: >-
+      github.ref == 'refs/heads/main'
+      && vars.DEPLOY_ENABLED == 'true'
+      && vars.BETA_ENABLED == 'true'
     environment:
       name: beta
       url: https://beta.complaintsmgmt.com
@@ -136,20 +147,43 @@ jobs:
 
   deploy-production:
     runs-on: ubuntu-latest
-    # Waits for beta to succeed AND for a human to approve, because the
-    # "production" environment has required reviewers configured in GitHub.
+    # Waits for a human to approve, because the "production" environment has
+    # required reviewers configured in GitHub. When beta is enabled it waits for
+    # that too.
     needs: [build-and-push, deploy-beta]
-    if: github.ref == 'refs/heads/main' && vars.DEPLOY_ENABLED == 'true'
+    # A skipped dependency would normally skip this job as well, so the result of
+    # deploy-beta is checked explicitly: it must have succeeded, or been skipped
+    # because BETA_ENABLED is unset. A beta that actually FAILED still blocks
+    # production, which is the whole point of having it.
+    if: >-
+      always()
+      && github.ref == 'refs/heads/main'
+      && vars.DEPLOY_ENABLED == 'true'
+      && needs.build-and-push.result == 'success'
+      && (needs.deploy-beta.result == 'success' || needs.deploy-beta.result == 'skipped')
     environment:
       name: production
       url: https://complaintsmgmt.com
     steps:
       - uses: actions/checkout@v4
 
-      # Deliberately no build step, and no file copy: the images are the exact
-      # ones beta has been running, and deploy-beta already put the current
-      # compose file and scripts on the server. This job is guaranteed to run
-      # after it by `needs`.
+      # Deliberately no build step: the images are the exact ones built once by
+      # build-and-push, and - when beta is enabled - the exact ones beta has
+      # been running.
+      #
+      # The file copy is repeated here rather than relying on deploy-beta,
+      # because beta may be skipped entirely, and because production may live on
+      # a different host.
+      - name: Copy deploy files to the server
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          source: deploy/docker-compose.prod.yml,deploy/Caddyfile,deploy/bootstrap-admin.sql,deploy/scripts/*,deploy/systemd/*
+          target: /opt/societycare
+          strip_components: 1
+
       - name: Deploy production
         uses: appleboy/ssh-action@v1.0.3
         env:
