@@ -139,6 +139,18 @@ minutes it restores them and fails the build.
 Rollback returns the *code*, not the database. Migrations only run forwards —
 which is the whole reason beta exists.
 
+The health check deliberately tests the app **the way a browser does**, with an
+`Origin` header, not just with plain curl. Browsers attach `Origin` to every
+request and curl does not, so a broken CORS allow-list answers `403` to real
+users while a curl health check happily reports `200`. That exact gap once let a
+deploy succeed in which nobody could log in.
+
+`deploy-stack.sh` therefore takes the public origin as its fifth argument and
+writes it to `APP_CORS_ALLOWED_ORIGINS`. Note that leaving that variable **blank
+is worse than leaving it unset**: `application.yml` uses `${VAR:default}`, and
+the default only applies when the variable is absent, so an empty value silently
+becomes an empty allow-list that rejects everything.
+
 ### The approval gate
 
 This is configured in GitHub, not in the workflow file:

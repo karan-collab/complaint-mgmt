@@ -3,7 +3,7 @@
 # Bring one SocietyCare environment up on a given pair of images, and roll back
 # if it does not come up healthy.
 #
-#   ./deploy-stack.sh beta ghcr.io/owner/societycare-api:abc1234 ghcr.io/owner/societycare-web:abc1234 8081
+#   ./deploy-stack.sh beta ghcr.io/owner/societycare-api:abc1234 ghcr.io/owner/societycare-web:abc1234 8081 https://beta.complaintsmgmt.com
 #
 # Required in the environment (supplied by the deploy workflow):
 #   POSTGRES_PASSWORD, DB_PASSWORD, JWT_SECRET
@@ -18,10 +18,11 @@
 # is exactly why changes go to beta first.
 set -euo pipefail
 
-ENV_NAME="${1:?Usage: $0 <beta|prod> <api-image> <web-image> <web-port>}"
+ENV_NAME="${1:?Usage: $0 <beta|prod> <api-image> <web-image> <web-port> <public-origin>}"
 API_IMAGE="${2:?api image required}"
 WEB_IMAGE="${3:?web image required}"
 WEB_PORT="${4:?web port required}"
+PUBLIC_ORIGIN="${5:?public origin required, e.g. https://complaintsmgmt.com}"
 
 : "${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}"
 : "${DB_PASSWORD:?DB_PASSWORD must be set}"
@@ -66,8 +67,15 @@ DB_USER=societycare
 POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
 DB_PASSWORD=${DB_PASSWORD}
 JWT_SECRET=${JWT_SECRET}
-# Same origin through nginx, so no cross-origin allowance is needed.
-APP_CORS_ALLOWED_ORIGINS=
+# Browsers send an Origin header on every POST, INCLUDING same-origin ones.
+# Spring's CORS filter therefore evaluates it even though nginx serves the UI
+# and the API from one host - and an empty allow-list rejects everything with
+# 403. Leaving this blank broke every login while curl, which sends no Origin
+# header, kept returning 200.
+#
+# Note that blank is worse than absent: application.yml's ${VAR:default} only
+# applies when the variable is UNSET, so an empty value silently wins.
+APP_CORS_ALLOWED_ORIGINS=${PUBLIC_ORIGIN}
 EOF
 }
 
@@ -75,10 +83,22 @@ wait_for_health() {
   local deadline=$((SECONDS + HEALTH_TIMEOUT_SECONDS))
   while (( SECONDS < deadline )); do
     if compose ps --format '{{.Service}} {{.Status}}' | grep -q '^api .*healthy'; then
-      # The api being healthy is necessary but not sufficient - check that the
-      # whole path a visitor uses actually answers.
+      # The api reporting healthy is necessary but not sufficient - check the
+      # whole path a visitor takes, through nginx.
       if curl -fsS -o /dev/null --max-time 5 "http://127.0.0.1:${WEB_PORT}/actuator/health"; then
-        return 0
+        # And check it the way a BROWSER does. Browsers attach an Origin header
+        # to every request; curl does not. A broken CORS allow-list answers 403
+        # to the browser while plain curl still sees 200, so a check without
+        # this header once passed a deploy in which no one could log in.
+        local code
+        code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 5 \
+          -H "Origin: ${PUBLIC_ORIGIN}" \
+          "http://127.0.0.1:${WEB_PORT}/api/v1/meta/categories")
+        if [ "$code" = "200" ]; then
+          return 0
+        fi
+        log "  api is up but returns HTTP ${code} to a request carrying Origin: ${PUBLIC_ORIGIN}"
+        log "  (that is a CORS allow-list problem, not a startup problem)"
       fi
     fi
     sleep 5
@@ -88,6 +108,7 @@ wait_for_health() {
 
 log "deploying ${ENV_NAME}"
 log "  api : ${API_IMAGE}"
+log "  origin: ${PUBLIC_ORIGIN}"
 log "  web : ${WEB_IMAGE}"
 log "  port: ${WEB_PORT}"
 
