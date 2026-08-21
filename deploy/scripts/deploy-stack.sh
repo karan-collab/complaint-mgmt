@@ -55,10 +55,27 @@ else
   log "first deploy of ${ENV_NAME} - no previous version to roll back to"
 fi
 
+# Writes the environment file the stack runs from.
+#
+# APP_CORS_ALLOWED_ORIGINS must carry the real public origin. Browsers attach an
+# Origin header to every POST, same-origin included, so Spring's CORS filter
+# evaluates it even though nginx serves the UI and the API from one host - and an
+# empty allow-list answers 403 to every login. Blank is worse than absent:
+# application.yml reads it with a shell-style default, and a default only applies
+# when the variable is UNSET, so an empty value silently wins.
+#
+# Keep explanations out here rather than inside the heredoc below: it is
+# unquoted, so anything resembling a variable reference in it gets expanded, and
+# under `set -u` an unknown name aborts the deploy.
 write_env() {
   local api="$1" web="$2"
+  local tmp="${ENV_FILE}.tmp"
   umask 077                       # secrets: owner-readable only
-  cat > "$ENV_FILE" <<EOF
+  # Written to a temporary name and moved into place, so a failure part-way
+  # through leaves the existing file intact. `cat > "$ENV_FILE"` truncates the
+  # target before writing anything, which once emptied a live environment file
+  # and left the stack unable to start.
+  cat > "$tmp" <<EOF
 # Written by deploy-stack.sh - do not edit by hand, the next deploy overwrites it.
 API_IMAGE=${api}
 WEB_IMAGE=${web}
@@ -67,16 +84,9 @@ DB_USER=societycare
 POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
 DB_PASSWORD=${DB_PASSWORD}
 JWT_SECRET=${JWT_SECRET}
-# Browsers send an Origin header on every POST, INCLUDING same-origin ones.
-# Spring's CORS filter therefore evaluates it even though nginx serves the UI
-# and the API from one host - and an empty allow-list rejects everything with
-# 403. Leaving this blank broke every login while curl, which sends no Origin
-# header, kept returning 200.
-#
-# Note that blank is worse than absent: application.yml's ${VAR:default} only
-# applies when the variable is UNSET, so an empty value silently wins.
 APP_CORS_ALLOWED_ORIGINS=${PUBLIC_ORIGIN}
 EOF
+  mv "$tmp" "$ENV_FILE"
 }
 
 wait_for_health() {
