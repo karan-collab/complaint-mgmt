@@ -40,7 +40,10 @@ public class CorsConfig {
         config.setAllowedOrigins(allowedOrigins);
         config.setAllowedMethods(List.of("GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("Authorization", "Content-Type", "Accept", "Origin"));
-        config.setExposedHeaders(List.of("Location"));
+        // Content-Disposition carries the report's filename; without exposing
+        // it the download would save as a random blob id in the dev setup,
+        // where the UI and the API are on different origins.
+        config.setExposedHeaders(List.of("Location", "Content-Disposition"));
         config.setAllowCredentials(false); // tokens are sent in Authorization header, not cookies
         config.setMaxAge(Duration.ofHours(1));
 

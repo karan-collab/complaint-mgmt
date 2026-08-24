@@ -52,6 +52,80 @@
     return fallback || 'Unexpected error';
   }
 
+  const EYE_ICON = `
+    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/>
+      <circle cx="12" cy="12" r="3"/>
+    </svg>
+  `;
+
+  const EYE_OFF_ICON = `
+    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M17.94 17.94A10.07 10.07 0 0 1 12 19c-7 0-10-7-10-7a18.4 18.4 0 0 1 5.06-5.94"/>
+      <path d="M9.9 4.24A9.1 9.1 0 0 1 12 4c7 0 10 7 10 7a18.5 18.5 0 0 1-2.16 3.19"/>
+      <path d="M14.12 14.12a3 3 0 1 1-4.24-4.24"/>
+      <path d="m2 2 20 20"/>
+    </svg>
+  `;
+
+  /**
+   * The show/hide control that sits inside a password field. Wrap the input and
+   * this button in `.password-field`, then call wirePasswordToggles(root) once
+   * the markup is in the DOM.
+   */
+  function passwordToggle() {
+    return `
+      <button type="button" class="password-toggle" data-password-toggle
+              aria-label="Show password" title="Show password">
+        <span class="password-icon" data-icon-show>${EYE_ICON}</span>
+        <span class="password-icon" data-icon-hide hidden>${EYE_OFF_ICON}</span>
+      </button>
+    `;
+  }
+
+  /**
+   * Wires every [data-password-toggle] under `root` to the input beside it.
+   *
+   * Nothing is remembered between renders on purpose: re-rendering a view
+   * rebuilds the input as type="password", so a revealed password can never
+   * survive a navigation or a re-login.
+   */
+  function wirePasswordToggles(root) {
+    root.querySelectorAll('[data-password-toggle]').forEach((btn) => {
+      const input = btn.parentElement && btn.parentElement.querySelector('input');
+      if (!input) return;
+
+      function paint(revealed) {
+        const label = revealed ? 'Hide password' : 'Show password';
+        btn.setAttribute('aria-label', label);
+        btn.title = label;
+        btn.querySelector('[data-icon-show]').hidden = revealed;
+        btn.querySelector('[data-icon-hide]').hidden = !revealed;
+      }
+
+      // Not every field starts masked. An admin setting a password *for* a
+      // resident has to read it back to them, so that box opens visible - paint
+      // from what the input actually is rather than assuming it is hidden.
+      paint(input.type !== 'password');
+
+      btn.addEventListener('click', () => {
+        const reveal = input.type === 'password';
+        input.type = reveal ? 'text' : 'password';
+        paint(reveal);
+        // Changing `type` drops the caret, so put it back at the end. Losing
+        // your place mid-password is worse than having no toggle at all.
+        const end = input.value.length;
+        input.focus();
+        try {
+          input.setSelectionRange(end, end);
+        } catch {
+          // Some browsers refuse setSelectionRange on a password input; the
+          // focus above is the part that matters.
+        }
+      });
+    });
+  }
+
   const CLOSE_ICON = `
     <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
       <path d="M18 6 6 18M6 6l12 12"/>
@@ -157,6 +231,8 @@
     messageFromError,
     openModal,
     confirmDialog,
+    passwordToggle,
+    wirePasswordToggles,
     CLOSE_ICON,
   };
 })();

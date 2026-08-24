@@ -36,22 +36,31 @@
 
         <label class="field">
           <span>Current Password</span>
-          <input type="password" name="currentPassword" id="currentPassword"
-                 autocomplete="current-password" placeholder="Your current password" required />
+          <div class="password-field">
+            <input type="password" name="currentPassword" id="currentPassword"
+                   autocomplete="current-password" placeholder="Your current password" required />
+            ${ui.passwordToggle()}
+          </div>
         </label>
 
         <label class="field">
           <span>New Password</span>
-          <input type="password" name="newPassword" id="newPassword"
-                 autocomplete="new-password" placeholder="At least 6 characters"
-                 minlength="6" maxlength="100" required />
+          <div class="password-field">
+            <input type="password" name="newPassword" id="newPassword"
+                   autocomplete="new-password" placeholder="At least 6 characters"
+                   minlength="6" maxlength="100" required />
+            ${ui.passwordToggle()}
+          </div>
         </label>
 
         <label class="field">
           <span>Confirm New Password</span>
-          <input type="password" name="confirmPassword" id="confirmPassword"
-                 autocomplete="new-password" placeholder="Re-enter the new password"
-                 minlength="6" maxlength="100" required />
+          <div class="password-field">
+            <input type="password" name="confirmPassword" id="confirmPassword"
+                   autocomplete="new-password" placeholder="Re-enter the new password"
+                   minlength="6" maxlength="100" required />
+            ${ui.passwordToggle()}
+          </div>
         </label>
 
         <p class="login-error" id="changePwError" hidden></p>
@@ -79,6 +88,7 @@
     const homeRoute = session.role === 'admin' ? '#/admin/dashboard' : '#/dashboard';
 
     root.innerHTML = renderShell(session, renderForm());
+    ui.wirePasswordToggles(root);
 
     const form = root.querySelector('#changePwForm');
     const submit = root.querySelector('#changePwSubmit');

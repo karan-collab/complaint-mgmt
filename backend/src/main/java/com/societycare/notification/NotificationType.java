@@ -13,6 +13,12 @@ public enum NotificationType {
     /** A resident withdrew a complaint. Goes to management. */
     COMPLAINT_WITHDRAWN(RecipientType.ADMIN),
 
+    /**
+     * A resident shared a suggestion. Goes to management, and is the one type
+     * whose subject is a suggestion rather than a complaint.
+     */
+    SUGGESTION_RAISED(RecipientType.ADMIN),
+
     /** A worker was assigned to a complaint with nobody on it. */
     WORKER_ASSIGNED(RecipientType.RESIDENT),
 

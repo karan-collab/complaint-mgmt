@@ -47,7 +47,24 @@
     return `${days} day${days === 1 ? '' : 's'} ago`;
   }
 
-  /** Groups the seven event types into the three colours the panel uses. */
+  /**
+   * "Plumber · Flat A-101 · 2 hours ago", minus whichever pieces this row
+   * does not have. Built by joining the parts that exist rather than
+   * concatenating with fixed separators: a suggestion carries no category, and
+   * a hard-coded separator would leave the line starting with a stray dot.
+   */
+  function metaLine(n) {
+    return [
+      n.category || '',
+      n.flat ? `Flat ${n.flat}` : '',
+      timeAgo(n.createdAt),
+    ]
+      .filter(Boolean)
+      .map(escapeHtml)
+      .join(' · ');
+  }
+
+  /** Groups the event types into the three colours the panel uses. */
   function toneFor(type) {
     if (type === 'COMPLAINT_COMPLETED') return 'done';
     if (type === 'WORKER_ASSIGNED' || type === 'WORKER_REASSIGNED') return 'work';
@@ -87,10 +104,7 @@
           <span class="bell-tone bell-tone-${escapeHtml(toneFor(n.type))}" aria-hidden="true"></span>
           <div class="bell-item-body">
             <p class="bell-message">${escapeHtml(n.message)}</p>
-            <p class="bell-meta">
-              ${escapeHtml(n.category || '')}${n.flat ? ` · Flat ${escapeHtml(n.flat)}` : ''}
-              · ${escapeHtml(timeAgo(n.createdAt))}
-            </p>
+            <p class="bell-meta">${metaLine(n)}</p>
           </div>
         </li>
       `

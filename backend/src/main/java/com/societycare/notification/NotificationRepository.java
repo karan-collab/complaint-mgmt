@@ -12,18 +12,25 @@ import java.util.List;
 public interface NotificationRepository extends JpaRepository<Notification, Long> {
 
     /**
-     * The complaint (and its resident) are fetched eagerly here: the panel shows
+     * The subject (and its resident) are fetched eagerly here: the panel shows
      * the flat and category on every row, and a lazy load per row would turn one
      * query into fifty.
+     *
+     * Both joins must be LEFT joins. Since V7 a notification is about a
+     * complaint *or* a suggestion, so an inner join on either one silently drops
+     * every row of the other kind - which for the management feed would mean
+     * suggestions never appearing in the bell at all.
      */
     @Query("select n from Notification n "
-            + "join fetch n.complaint c join fetch c.resident "
+            + "left join fetch n.complaint c left join fetch c.resident "
+            + "left join fetch n.suggestion s left join fetch s.resident "
             + "where n.resident.residentId = :residentId "
             + "order by n.createdAt desc")
     List<Notification> findForResident(@Param("residentId") Long residentId, Pageable pageable);
 
     @Query("select n from Notification n "
-            + "join fetch n.complaint c join fetch c.resident "
+            + "left join fetch n.complaint c left join fetch c.resident "
+            + "left join fetch n.suggestion s left join fetch s.resident "
             + "where n.recipientType = :recipientType "
             + "order by n.createdAt desc")
     List<Notification> findForRecipientType(@Param("recipientType") RecipientType recipientType,
@@ -48,12 +55,13 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
                                     @Param("now") OffsetDateTime now);
 
     /**
-     * Everything tied to a resident who is being removed: both the notifications
-     * addressed to them and the management notifications *about* their
-     * complaints, which are about to be hard-deleted along with the resident.
+     * Everything tied to a resident who is being removed: the notifications
+     * addressed to them, and the management notifications *about* their
+     * complaints and suggestions, all of which are about to be hard-deleted
+     * along with the resident.
      *
-     * Must run before the complaints are deleted, or the complaint_id foreign
-     * key rejects the delete - see ResidentService.delete.
+     * Must run before those complaints and suggestions are deleted, or their
+     * foreign keys reject the delete - see ResidentService.delete.
      */
     // The complaint side has to go through a subquery: walking
     // n.complaint.resident in a bulk delete makes Hibernate emit an implicit
@@ -64,7 +72,9 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
     @Query("delete from Notification n "
             + "where n.resident.residentId = :residentId "
             + "   or n.complaint in (select c from Complaint c "
-            + "                      where c.resident.residentId = :residentId)")
+            + "                      where c.resident.residentId = :residentId) "
+            + "   or n.suggestion in (select s from Suggestion s "
+            + "                       where s.resident.residentId = :residentId)")
     int deleteAllForResident(@Param("residentId") Long residentId);
 
     /** Retention sweep; see NotificationRetentionJob. */

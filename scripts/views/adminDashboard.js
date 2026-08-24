@@ -104,6 +104,25 @@
               </svg>
             </span>
           </button>
+
+          <button type="button" class="action-card" data-nav="#/admin/suggestions">
+            <span class="action-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+                <path d="M8 9h8M8 13h5"/>
+              </svg>
+            </span>
+            <span class="action-text">
+              <span class="action-title">Review Suggestions</span>
+              <span class="action-sub">Read the feedback and ideas residents have sent in.</span>
+            </span>
+            <span class="action-arrow" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M5 12h14"/>
+                <path d="m13 5 7 7-7 7"/>
+              </svg>
+            </span>
+          </button>
         </div>
 
         ${contentHtml}

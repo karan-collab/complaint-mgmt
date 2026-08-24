@@ -9,6 +9,9 @@ import com.societycare.auth.dto.ResidentLoginRequest;
 import com.societycare.resident.Resident;
 import com.societycare.resident.ResidentRepository;
 import com.societycare.security.JwtService;
+import com.societycare.complaint.ComplaintRepository;
+import com.societycare.notification.NotificationRepository;
+import com.societycare.suggestion.SuggestionRepository;
 import com.societycare.support.TestAuth;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -33,6 +36,9 @@ class AuthControllerTest {
 
     @Autowired private WebApplicationContext webApplicationContext;
     @Autowired private ResidentRepository residentRepository;
+    @Autowired private ComplaintRepository complaintRepository;
+    @Autowired private SuggestionRepository suggestionRepository;
+    @Autowired private NotificationRepository notificationRepository;
     @Autowired private AdminRepository adminRepository;
     @Autowired private PasswordEncoder passwordEncoder;
     @Autowired private JwtService jwtService;
@@ -46,6 +52,11 @@ class AuthControllerTest {
                 .apply(springSecurity())
                 .build();
 
+        // Children before parents: notifications point at complaints and
+        // suggestions, and both of those point at the resident.
+        notificationRepository.deleteAll();
+        complaintRepository.deleteAll();
+        suggestionRepository.deleteAll();
         residentRepository.deleteAll();
         adminRepository.deleteAll();
 

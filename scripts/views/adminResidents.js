@@ -396,7 +396,10 @@
         <form class="modal-form" id="resetForm" novalidate>
           <label class="field">
             <span>New Password</span>
-            <input type="text" name="newPassword" placeholder="At least 6 characters" minlength="6" required data-autofocus />
+            <div class="password-field">
+              <input type="text" name="newPassword" placeholder="At least 6 characters" minlength="6" required data-autofocus />
+              ${ui.passwordToggle()}
+            </div>
           </label>
           <p class="login-error" id="resetError" hidden></p>
           <div class="modal-actions">
@@ -407,6 +410,8 @@
           </div>
         </form>
       `);
+
+      ui.wirePasswordToggles(modal.root);
 
       const form = modal.root.querySelector('#resetForm');
       const errorEl = modal.root.querySelector('#resetError');
