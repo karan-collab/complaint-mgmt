@@ -50,6 +50,13 @@ security:
     issuer: societycare
 
 app:
+  reports:
+    # The zone the report's date range is resolved in. "25 August" is a day in
+    # somebody's calendar, not an instant: the production container runs in UTC
+    # and the readers are in India, so leaving this to the JVM default would
+    # shift every boundary by 5h30m and file a 2 a.m. ticket under the previous
+    # day. Explicit here so dev, test and production agree.
+    time-zone: ${REPORT_TIME_ZONE:Asia/Kolkata}
   cors:
     # Comma-separated list. In dev, allow VS Code Live Server defaults.
     # In prod, override with APP_CORS_ALLOWED_ORIGINS=https://your-domain.example

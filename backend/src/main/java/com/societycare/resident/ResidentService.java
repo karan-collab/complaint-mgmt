@@ -8,6 +8,7 @@ import com.societycare.resident.dto.CreateResidentRequest;
 import com.societycare.resident.dto.ResetPasswordRequest;
 import com.societycare.resident.dto.ResidentDto;
 import com.societycare.resident.dto.UpdateResidentRequest;
+import com.societycare.suggestion.SuggestionRepository;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -21,15 +22,18 @@ public class ResidentService {
 
     private final ResidentRepository residentRepository;
     private final ComplaintRepository complaintRepository;
+    private final SuggestionRepository suggestionRepository;
     private final NotificationService notificationService;
     private final PasswordEncoder passwordEncoder;
 
     public ResidentService(ResidentRepository residentRepository,
                            ComplaintRepository complaintRepository,
+                           SuggestionRepository suggestionRepository,
                            NotificationService notificationService,
                            PasswordEncoder passwordEncoder) {
         this.residentRepository = residentRepository;
         this.complaintRepository = complaintRepository;
+        this.suggestionRepository = suggestionRepository;
         this.notificationService = notificationService;
         this.passwordEncoder = passwordEncoder;
     }
@@ -81,9 +85,10 @@ public class ResidentService {
     }
 
     /**
-     * Permanently delete a resident along with every complaint they raised.
-     * Complaints carry a non-null FK to the resident, so they cannot be kept
-     * behind; the admin UI warns with the exact count before calling this.
+     * Permanently delete a resident along with every complaint they raised and
+     * every suggestion they wrote. Both carry a non-null FK to the resident, so
+     * they cannot be kept behind; the admin UI warns with the exact complaint
+     * count before calling this.
      */
     @Transactional
     public void delete(Long residentId) {
@@ -93,6 +98,9 @@ public class ResidentService {
         // any other order trips a foreign key.
         notificationService.purgeForResident(residentId);
         complaintRepository.deleteByResident_ResidentId(residentId);
+        // Suggestions hang off the resident alone - nothing references them, so
+        // their position here only has to be before the resident goes.
+        suggestionRepository.deleteByResident_ResidentId(residentId);
         residentRepository.delete(resident);
     }
 

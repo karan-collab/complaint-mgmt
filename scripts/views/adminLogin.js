@@ -1,4 +1,6 @@
 (function () {
+  const ui = window.CM.ui;
+
   function renderAdminLogin(root, ctx) {
     const navigate = ctx.navigate;
     const storage = window.CM.storage;
@@ -35,7 +37,10 @@
           </label>
           <label class="field">
             <span>Password</span>
-            <input type="password" name="password" id="adminPassword" autocomplete="current-password" placeholder="\u2022\u2022\u2022\u2022\u2022" required />
+            <div class="password-field">
+              <input type="password" name="password" id="adminPassword" autocomplete="current-password" placeholder="\u2022\u2022\u2022\u2022\u2022" required />
+              ${ui.passwordToggle()}
+            </div>
           </label>
           <p class="login-error" id="adminLoginError" hidden></p>
           <button type="submit" class="btn btn-primary btn-block" id="adminLoginSubmit">
@@ -64,6 +69,7 @@
     }
 
     root.querySelector('.back-link').addEventListener('click', () => navigate('#/role'));
+    ui.wirePasswordToggles(root);
 
     form.addEventListener('submit', async (e) => {
       e.preventDefault();

@@ -11,6 +11,7 @@ public class NotificationDto {
     private NotificationType type;
     private String message;
     private Long complaintId;
+    private Long suggestionId;
     private String flatNo;
     private String category;
     private OffsetDateTime createdAt;
@@ -46,6 +47,14 @@ public class NotificationDto {
 
     public void setComplaintId(Long complaintId) {
         this.complaintId = complaintId;
+    }
+
+    public Long getSuggestionId() {
+        return suggestionId;
+    }
+
+    public void setSuggestionId(Long suggestionId) {
+        this.suggestionId = suggestionId;
     }
 
     public String getFlatNo() {

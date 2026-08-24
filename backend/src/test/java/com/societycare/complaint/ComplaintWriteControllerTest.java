@@ -9,6 +9,7 @@ import com.societycare.professional.ProfessionalRepository;
 import com.societycare.resident.Resident;
 import com.societycare.resident.ResidentRepository;
 import com.societycare.status.StatusRepository;
+import com.societycare.suggestion.SuggestionRepository;
 import com.societycare.support.TestAuth;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -32,6 +33,7 @@ class ComplaintWriteControllerTest {
 
     @Autowired private WebApplicationContext webApplicationContext;
     @Autowired private ResidentRepository residentRepository;
+    @Autowired private SuggestionRepository suggestionRepository;
     @Autowired private ProfessionalRepository professionalRepository;
     @Autowired private ComplaintRepository complaintRepository;
     @Autowired private NotificationRepository notificationRepository;
@@ -53,6 +55,7 @@ class ComplaintWriteControllerTest {
         notificationRepository.deleteAll();
         complaintRepository.deleteAll();
         professionalRepository.deleteAll();
+        suggestionRepository.deleteAll();
         residentRepository.deleteAll();
 
         Resident anita = residentRepository.save(new Resident("Anita Sharma", "A-101"));

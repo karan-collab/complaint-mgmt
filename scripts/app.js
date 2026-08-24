@@ -14,6 +14,7 @@
     '#/admin/tickets':   { render: views.adminTickets,    public: false, role: 'admin' },
     '#/admin/residents': { render: views.adminResidents,  public: false, role: 'admin' },
     '#/admin/professionals': { render: views.adminProfessionals, public: false, role: 'admin' },
+    '#/admin/suggestions': { render: views.adminSuggestions, public: false, role: 'admin' },
     '#/change-password': { render: views.changePassword,  public: false, role: null },
   };
 
@@ -65,22 +66,36 @@
     return role === 'admin' ? '#/admin/dashboard' : '#/dashboard';
   }
 
+  /**
+   * The signed-in topbar. Both roles get the bell and Settings; the middle
+   * button differs, because the two roles are on opposite ends of the same
+   * flows - a resident writes suggestions, management reads and reports on
+   * them.
+   *
+   *   resident:   bell | Add Suggestion  | Settings
+   *   management: bell | Export to Excel | Settings
+   */
   function updateTopbar(s) {
-    const logoutBtn = document.getElementById('logoutBtn');
-    const changePwBtn = document.getElementById('changePwBtn');
+    const settingsWrap = document.getElementById('settingsWrap');
+    const suggestBtn = document.getElementById('suggestBtn');
+    const exportBtn = document.getElementById('exportBtn');
     const topbarUser = document.getElementById('topbarUser');
     const topbarName = document.getElementById('topbarName');
     const topbarFlat = document.getElementById('topbarFlat');
     const notifications = window.CM.notifications;
-    if (!logoutBtn) return;
+    if (!settingsWrap) return;
+
+    const isAdmin = !!s && s.role === 'admin';
+    settingsWrap.hidden = !s;
+    if (suggestBtn) suggestBtn.hidden = !s || isAdmin;
+    if (exportBtn) exportBtn.hidden = !isAdmin;
+    if (topbarUser) topbarUser.hidden = !s;
+
     if (s) {
-      logoutBtn.hidden = false;
-      if (changePwBtn) changePwBtn.hidden = false;
-      if (topbarUser) topbarUser.hidden = false;
       // Also re-reads the unread count, so the dot reacts to whatever the user
       // just did without waiting for the next poll.
       if (notifications) notifications.start(s);
-      if (s.role === 'admin') {
+      if (isAdmin) {
         if (topbarName) topbarName.textContent = 'Management';
         if (topbarFlat) topbarFlat.textContent = `@${s.username || s.displayName || 'admin'}`;
       } else {
@@ -88,10 +103,9 @@
         if (topbarFlat) topbarFlat.textContent = `Flat ${s.flat || s.flatNo || ''}`;
       }
     } else {
-      logoutBtn.hidden = true;
-      if (changePwBtn) changePwBtn.hidden = true;
-      if (topbarUser) topbarUser.hidden = true;
       if (notifications) notifications.stop();
+      // A menu left open across a logout would hang over the login screen.
+      if (window.CM.settingsMenu) window.CM.settingsMenu.close();
     }
   }
 
@@ -149,11 +163,13 @@
   });
 
   async function init() {
-    document.getElementById('logoutBtn').addEventListener('click', onLogout);
-    const changePwBtn = document.getElementById('changePwBtn');
-    if (changePwBtn) {
-      changePwBtn.addEventListener('click', () => navigate('#/change-password'));
-    }
+    // The Settings menu reports what was chosen rather than acting on it: the
+    // router owns navigation and the session, so the decision belongs here.
+    window.addEventListener('cm:settings-action', (e) => {
+      const action = e.detail && e.detail.action;
+      if (action === 'logout') onLogout();
+      if (action === 'change-password') navigate('#/change-password');
+    });
     window.addEventListener('hashchange', handleRoute);
 
     const initial = session.get();

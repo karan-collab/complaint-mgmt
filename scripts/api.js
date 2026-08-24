@@ -108,13 +108,22 @@
 
     if (res.ok) return body2;
 
-    const isObj = body2 && typeof body2 === 'object';
+    throw errorFor(res, path, body2);
+  }
+
+  /**
+   * Builds the ApiError for a failed response, and fires the session-expired
+   * event where that is what the status means. Shared by every request shape
+   * so the 401 rule lives in exactly one place.
+   */
+  function errorFor(res, path, body) {
+    const isObj = body && typeof body === 'object';
     const errInfo = {
       status: res.status,
-      title: (isObj && (body2.title || body2.error)) || res.statusText,
-      detail: (isObj && (body2.detail || body2.message)) || null,
-      fieldErrors: (isObj && body2.errors) || null,
-      body: body2,
+      title: (isObj && (body.title || body.error)) || res.statusText,
+      detail: (isObj && (body.detail || body.message)) || null,
+      fieldErrors: (isObj && body.errors) || null,
+      body,
     };
     if (!errInfo.detail && errInfo.fieldErrors) {
       errInfo.detail = summariseFieldErrors(errInfo.fieldErrors);
@@ -128,12 +137,61 @@
       window.dispatchEvent(new CustomEvent('cm:unauthorized', { detail: errInfo }));
     }
 
-    throw new ApiError(errInfo);
+    return new ApiError(errInfo);
+  }
+
+  /** Pulls the filename out of a Content-Disposition header, if there is one. */
+  function fileNameFrom(disposition) {
+    if (!disposition) return null;
+    const match = /filename\*?=(?:UTF-8'')?"?([^";]+)"?/i.exec(disposition);
+    if (!match) return null;
+    try {
+      return decodeURIComponent(match[1]);
+    } catch {
+      return match[1];
+    }
+  }
+
+  /**
+   * GET something that is a file rather than JSON - the .xlsx report.
+   *
+   * Shares the base URL, the Bearer token and the error handling above; the
+   * only difference is that the body comes back as a Blob. A plain <a href>
+   * could not be used for this: the endpoint needs an Authorization header,
+   * and a link cannot carry one.
+   */
+  async function requestBlob(path, { headers, signal } = {}) {
+    const finalHeaders = { ...(headers || {}) };
+    const token = currentToken();
+    if (token) finalHeaders.Authorization = `Bearer ${token}`;
+
+    let res;
+    try {
+      res = await fetch(buildUrl(path), { method: 'GET', headers: finalHeaders, signal });
+    } catch (networkErr) {
+      throw new ApiError({
+        status: 0,
+        title: 'Network error',
+        detail:
+          'Could not reach the server. Make sure the backend is running on '
+          + cfg.apiBase + '.',
+      });
+    }
+
+    if (!res.ok) {
+      throw errorFor(res, path, await parseBody(res));
+    }
+
+    return {
+      blob: await res.blob(),
+      fileName: fileNameFrom(res.headers.get('Content-Disposition')),
+    };
   }
 
   const api = {
     ApiError,
     get: (path, opts) => request('GET', path, opts),
+    getBlob: (path, opts) => requestBlob(path, opts),
     post: (path, body, opts) => request('POST', path, { ...(opts || {}), body }),
     patch: (path, body, opts) => request('PATCH', path, { ...(opts || {}), body }),
     put: (path, body, opts) => request('PUT', path, { ...(opts || {}), body }),

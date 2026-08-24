@@ -11,6 +11,7 @@ import com.societycare.resident.Resident;
 import com.societycare.resident.ResidentRepository;
 import com.societycare.status.Status;
 import com.societycare.status.StatusRepository;
+import com.societycare.suggestion.SuggestionRepository;
 import com.societycare.support.TestAuth;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -41,6 +42,7 @@ class ProfessionalControllerTest {
     @Autowired private WebApplicationContext webApplicationContext;
     @Autowired private ProfessionalRepository professionalRepository;
     @Autowired private ResidentRepository residentRepository;
+    @Autowired private SuggestionRepository suggestionRepository;
     @Autowired private ComplaintRepository complaintRepository;
     @Autowired private NotificationRepository notificationRepository;
     @Autowired private StatusRepository statusRepository;
@@ -56,6 +58,7 @@ class ProfessionalControllerTest {
         notificationRepository.deleteAll();
         complaintRepository.deleteAll();
         professionalRepository.deleteAll();
+        suggestionRepository.deleteAll();
         residentRepository.deleteAll();
     }
 

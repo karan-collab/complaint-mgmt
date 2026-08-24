@@ -14,6 +14,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.WebRequest;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 import javax.validation.ConstraintViolationException;
 import java.util.List;
@@ -41,6 +42,24 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(BadRequestException.class)
     public ResponseEntity<ApiError> handleBadRequest(BadRequestException ex, WebRequest request) {
         return build(HttpStatus.BAD_REQUEST, "Bad request", ex.getMessage(), request);
+    }
+
+    /**
+     * A query or path parameter that cannot be coerced to its declared type -
+     * {@code ?from=31-03-2026} against a LocalDate, or a non-numeric id.
+     *
+     * Without this the mismatch escapes as a 500, which is wrong twice over: it
+     * blames the server for the caller's typo, and it hands back an opaque
+     * error instead of naming the parameter at fault.
+     */
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<ApiError> handleTypeMismatch(MethodArgumentTypeMismatchException ex,
+                                                       WebRequest request) {
+        String detail = "'" + ex.getName() + "' has an invalid value";
+        if (ex.getValue() != null) {
+            detail += ": " + ex.getValue();
+        }
+        return build(HttpStatus.BAD_REQUEST, "Bad request", detail, request);
     }
 
     /** Triggered by @Valid on @RequestBody DTOs. */

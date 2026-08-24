@@ -205,6 +205,7 @@
       type: n.type,
       message: n.message,
       complaintId: n.complaintId,
+      suggestionId: n.suggestionId,
       flat: n.flatNo,
       category: n.category,
       createdAt: n.createdAt,
@@ -220,6 +221,35 @@
 
   async function markNotificationsRead() {
     await api.post('/notifications/read');
+  }
+
+  // --------------------------------------------------------- suggestions
+
+  function mapSuggestion(dto) {
+    if (!dto) return null;
+    return {
+      id: dto.id,
+      flat: dto.flatNo,
+      residentName: dto.residentName || null,
+      residentPhone: dto.residentPhone || null,
+      text: dto.suggestion,
+      createdAt: dto.createdAt,
+    };
+  }
+
+  // The resident is taken from the token, exactly as it is when raising a
+  // complaint, so there is no id to pass and none to tamper with.
+  async function addSuggestion({ text }) {
+    const dto = await api.post('/suggestions', {
+      suggestion: String(text || '').trim(),
+    });
+    return mapSuggestion(dto);
+  }
+
+  /** Admin only: every suggestion in the society, newest first. */
+  async function listSuggestions() {
+    const list = await api.get('/suggestions');
+    return (list || []).map(mapSuggestion);
   }
 
   // ------------------------------------------------------- professionals
@@ -379,6 +409,10 @@
     getNotifications,
     getUnreadNotificationCount,
     markNotificationsRead,
+
+    // suggestions
+    addSuggestion,
+    listSuggestions,
 
     // professionals
     listProfessionals,

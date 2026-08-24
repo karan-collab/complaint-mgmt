@@ -2,6 +2,7 @@ package com.societycare.notification;
 
 import com.societycare.complaint.Complaint;
 import com.societycare.resident.Resident;
+import com.societycare.suggestion.Suggestion;
 
 import javax.persistence.Column;
 import javax.persistence.Entity;
@@ -37,9 +38,18 @@ public class Notification {
     @JoinColumn(name = "resident_id")
     private Resident resident;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "complaint_id", nullable = false)
+    /**
+     * The subject of the notification. Exactly one of these is set - a
+     * notification is about a complaint or about a suggestion, never both and
+     * never neither. Enforced by chk_notification_subject in V7.
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "complaint_id")
     private Complaint complaint;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "suggestion_id")
+    private Suggestion suggestion;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "type", nullable = false, length = 32)
@@ -91,6 +101,14 @@ public class Notification {
 
     public void setComplaint(Complaint complaint) {
         this.complaint = complaint;
+    }
+
+    public Suggestion getSuggestion() {
+        return suggestion;
+    }
+
+    public void setSuggestion(Suggestion suggestion) {
+        this.suggestion = suggestion;
     }
 
     public NotificationType getType() {

@@ -189,6 +189,52 @@ p { margin: 0; }
   color: var(--primary-dark);
 }
 
+/* ===== Topbar dropdown menu (Settings) ===== */
+.menu-wrap {
+  position: relative;
+  display: inline-flex;
+}
+.menu-panel {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  z-index: 50;
+  min-width: 210px;
+  padding: 6px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-lg);
+}
+.menu-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 12px;
+  border: none;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: .92rem;
+  text-align: left;
+  cursor: pointer;
+  transition: background .15s ease, color .15s ease;
+}
+.menu-item:hover {
+  background: var(--primary-50);
+  color: var(--primary-dark);
+}
+.menu-item:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: -2px;
+}
+.menu-item-danger:hover {
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
 /* ===== Notification bell ===== */
 .bell-wrap {
   position: relative;
@@ -415,6 +461,43 @@ p { margin: 0; }
 .field textarea::placeholder {
   color: var(--text-soft);
 }
+/* A password input paired with its show/hide control. The input reserves room
+   on the right so a long password never runs underneath the button. */
+.password-field {
+  position: relative;
+  display: block;
+}
+.password-field input {
+  padding-right: 48px;
+}
+.password-toggle {
+  position: absolute;
+  top: 50%;
+  right: 7px;
+  transform: translateY(-50%);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-soft);
+  cursor: pointer;
+  transition: color .15s ease, background .15s ease;
+}
+.password-toggle:hover {
+  color: var(--primary-dark);
+  background: var(--primary-50);
+}
+.password-toggle:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 1px;
+}
+.password-icon { display: inline-flex; }
+
 .field .counter {
   position: absolute;
   right: 8px;
@@ -1768,6 +1851,8 @@ body.modal-open { overflow: hidden; }
      so on a narrow screen it spans the width of the topbar instead. */
   .bell-wrap { position: static; }
   .bell-panel { width: auto; left: 12px; right: 12px; }
+  .menu-wrap { position: static; }
+  .menu-panel { left: 12px; right: 12px; min-width: 0; }
   .view { padding: 16px 12px 80px; }
   .card, .complaint-card, .form-card { padding: 16px; }
   .welcome-name { font-size: 1.5rem; }
@@ -1902,8 +1987,95 @@ body.modal-open { overflow: hidden; }
 .admin-shortcut-grid {
   margin-bottom: 12px;
 }
+/* Two shortcuts fit a tablet; the third only earns a column on a wide screen,
+   below which a 3-up row squeezes the sub-text into three or four lines. */
 @media (min-width: 720px) {
   .admin-shortcut-grid { grid-template-columns: 1fr 1fr; }
+}
+@media (min-width: 1040px) {
+  .admin-shortcut-grid { grid-template-columns: repeat(3, 1fr); }
+}
+
+/* ===== Resident suggestions ===== */
+
+/* Counter under the suggestion textarea. */
+.char-count {
+  margin: -4px 2px 0;
+  font-size: .78rem;
+  color: var(--text-soft);
+  text-align: right;
+}
+
+.suggestion-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 12px;
+}
+/* Inside a flat group the cards drop their own chrome: the group heading is
+   already a card, and a card within a card reads as clutter. */
+.suggestion-list-grouped {
+  margin-top: 0;
+  gap: 0;
+}
+.suggestion-list-grouped .suggestion-card {
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  border-bottom: 1px solid var(--border);
+}
+.suggestion-list-grouped .suggestion-card:last-child { border-bottom: none; }
+
+.suggestion-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+.suggestion-who {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+.suggestion-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  flex: none;
+  border-radius: 999px;
+  background: var(--primary-50);
+  color: var(--primary-dark);
+  font-weight: 700;
+  font-size: .95rem;
+}
+.suggestion-flat {
+  font-weight: 600;
+  font-size: .95rem;
+  color: var(--text);
+}
+.suggestion-name {
+  font-size: .82rem;
+  color: var(--text-muted);
+}
+.suggestion-phone { color: var(--primary-dark); }
+.suggestion-date {
+  flex: none;
+  font-size: .8rem;
+  color: var(--text-soft);
+  white-space: nowrap;
+}
+.suggestion-text {
+  margin-top: 12px;
+  color: var(--text);
+  font-size: .95rem;
+  line-height: 1.6;
+  /* Suggestions are free text, so a resident can paste a paragraph with their
+     own line breaks - keep them rather than collapsing it into one block. */
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
 .assign-pro-meta {

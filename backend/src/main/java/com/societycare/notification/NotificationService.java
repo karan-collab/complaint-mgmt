@@ -4,6 +4,7 @@ import com.societycare.complaint.Complaint;
 import com.societycare.notification.dto.NotificationDto;
 import com.societycare.professional.Professional;
 import com.societycare.security.AuthenticatedUser;
+import com.societycare.suggestion.Suggestion;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -51,6 +52,22 @@ public class NotificationService {
         save(complaint, NotificationType.COMPLAINT_WITHDRAWN,
                 "Flat " + flatOf(complaint) + " withdrew " + articleFor(categoryOf(complaint))
                         + " " + categoryOf(complaint) + " issue");
+    }
+
+    /**
+     * Management is told when a resident shares a suggestion. The text says who
+     * it came from but not what it says: the panel is a nudge to go and read it,
+     * and a 255-character message column would truncate most suggestions anyway.
+     */
+    @Transactional
+    public void recordSuggestionRaised(Suggestion suggestion) {
+        Notification notification = new Notification();
+        notification.setType(NotificationType.SUGGESTION_RAISED);
+        notification.setRecipientType(NotificationType.SUGGESTION_RAISED.getRecipientType());
+        notification.setSuggestion(suggestion);
+        notification.setMessage(truncate(
+                "Flat " + suggestion.getResident().getFlatNo() + " shared a new suggestion"));
+        notificationRepository.save(notification);
     }
 
     @Transactional
@@ -139,8 +156,9 @@ public class NotificationService {
 
     /**
      * Clears every notification connected to a resident who is being deleted -
-     * both their own and the management ones about their complaints. Must run
-     * before those complaints are deleted; see ResidentService.delete.
+     * their own, and the management ones about their complaints and their
+     * suggestions. Must run before those complaints and suggestions are
+     * deleted; see ResidentService.delete.
      */
     @Transactional
     public int purgeForResident(Long residentId) {
